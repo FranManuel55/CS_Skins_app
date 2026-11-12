@@ -4,7 +4,7 @@ Proyecto integrador de **Ciencia de Datos** (UTN FRM, 2026) · grupo **5K10-13**
 
 **Pregunta:** ¿se puede estimar, sólo con los atributos que se conocen el día del lanzamiento, en qué percentil de precio va a quedar un skin de arma de Counter-Strike 2?
 
-**Aplicación:** https://USUARIO.github.io/REPOSITORIO/ (GitHub Pages, carpeta `docs/`)
+**Aplicación:** https://franmanuel55.github.io/CS_Skins_app/ (GitHub Pages, carpeta `docs/`)
 
 ## Qué hay en el repositorio
 
