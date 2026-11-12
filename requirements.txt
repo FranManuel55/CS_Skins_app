@@ -1,0 +1,5 @@
+# Versiones con las que se generó la aplicación. scikit-learn va fijo: es la versión del notebook.
+pandas>=2.2
+numpy>=1.26
+scikit-learn==1.6.1
+altair==5.5.0

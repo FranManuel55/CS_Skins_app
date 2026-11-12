@@ -1,0 +1,8 @@
+{
+  "fuente": "salidas impresas de notebooks/Entrega3_modelado_30-10_R2.ipynb (secciones 8 y 9), redondeadas como las imprime el notebook",
+  "snapshot": "2026-10-30",
+  "r2_cv": 0.614,
+  "r2_prueba": 0.272,
+  "mae_prueba": 23.44,
+  "sesgo_prueba": 22.59
+}

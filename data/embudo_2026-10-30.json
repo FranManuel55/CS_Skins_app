@@ -1,0 +1,13 @@
+{
+  "snapshot": "2026-10-30",
+  "fuente": "contado sobre include/bronze/snapshot=2026-10-30 con el mismo criterio de procesar_precios y procesar_atributos",
+  "steam_items_de_arma": 12399,
+  "steam_paginas": 1003,
+  "steam_items_leidos": 10030,
+  "steam_sin_duplicados": 10003,
+  "steam_con_precio": 10003,
+  "catalogo_items": 21407,
+  "catalogo_armas": 16837,
+  "catalogo_nombres_unicos": 16797,
+  "unidos": 10003
+}

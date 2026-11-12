@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Precio antes de salir</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Proyecto integrador de Ciencia de Datos (UTN FRM 2026, grupo 5K10-13): ¿se puede estimar en qué percentil de precio va a quedar un skin de Counter-Strike 2 sólo con sus atributos?">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una escalera de precios. Arriba la tira del mercado; el tallo baja sección por sección
+   sobre el fondo del inventario; la copa es una banda más oscura donde manda el usuario. */
+:root {
+  --bg: #13161b;          /* fondo de inventario, gris azulado */
+  --surface: #1b1f26;     /* tarjetas y desplegables */
+  --sunk: #0e1014;        /* la copa */
+  --ink: #e6e8eb;
+  --muted: #9aa3ae;
+  --line: #2b313a;
+  --accent: #f0a93b;      /* el ámbar de la etiqueta de precio */
+  --accent-ink: #1a1206;
+  --warn: #ff7a59;
+  --blue: #4b69ff;        /* Mil-Spec: el color del modelo */
+  --font-display: "Chakra Petch", "Rajdhani", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 6px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef0f3; --surface: #ffffff; --sunk: #e2e6eb; --ink: #14181d; --muted: #545e69;
+    --line: #cfd5dc; --accent: #a8640a; --accent-ink: #fff8ec; --warn: #c2410c; --blue: #3550e0;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef0f3; --surface: #ffffff; --sunk: #e2e6eb; --ink: #14181d; --muted: #545e69;
+  --line: #cfd5dc; --accent: #a8640a; --accent-ink: #fff8ec; --warn: #c2410c; --blue: #3550e0;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 16px/1.6 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap {
+  max-width: 1080px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 4.6vw, 3.3rem); letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.15rem); }
+h3 { font-size: 1.12rem; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--font-data); font-size: 0.88em; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* barra superior */
+.barra {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+}
+.barra .wrap { display: flex; align-items: center; gap: 18px; min-height: 52px; padding-block: 6px; flex-wrap: wrap; }
+.marca { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.85rem; white-space: nowrap; }
+.marca span { color: var(--accent); }
+
+/* índice lateral */
+:root { --lateral: 236px; }
+.lateral {
+  position: fixed; inset: 0 auto 0 0; z-index: 30; width: var(--lateral);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-right: 1px solid var(--line);
+  padding: calc(64px + env(safe-area-inset-top, 0px)) 14px 24px max(14px, env(safe-area-inset-left, 0px));
+  overflow-y: auto; overscroll-behavior: contain;
+  transition: transform 0.22s ease;
+}
+.lateral-cuerpo { display: grid; gap: 20px; transition: opacity 0.15s ease, visibility 0.15s; }
+.lateral .marca { white-space: normal; line-height: 1.35; padding-inline: 10px; }
+.nav { display: grid; gap: 2px; font-size: 0.92rem; }
+.nav a { color: var(--muted); text-decoration: none; padding: 7px 10px; border-radius: var(--radius); border-left: 2px solid transparent; }
+.nav a:hover, .nav a:focus-visible { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
+.nav a:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.nav a[aria-current] { color: var(--ink); border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.nav .grupo { margin: 12px 10px 4px; font-family: var(--font-data); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.conmutador {
+  position: fixed; z-index: 40; top: calc(6px + env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px));
+  width: 40px; height: 40px; display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); cursor: pointer;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.25);
+}
+.conmutador:hover { border-color: var(--accent); }
+.conmutador svg { width: 20px; height: 20px; }
+.velo { position: fixed; inset: 0; z-index: 25; background: rgb(0 0 0 / 0.45); }
+.velo[hidden] { display: none; }
+@media (min-width: 901px) {
+  html { scroll-padding-top: 16px; }
+  .barra, .velo { display: none; }
+  main, footer { margin-left: var(--lateral); transition: margin-left 0.22s ease; }
+  body:not(.lateral-abierto) .lateral { transform: translateX(-100%); }
+  body:not(.lateral-abierto) .lateral-cuerpo { opacity: 0; visibility: hidden; }
+  body:not(.lateral-abierto) main, body:not(.lateral-abierto) footer { margin-left: 0; }
+}
+@media (max-width: 900px) {
+  .lateral { width: min(84vw, 300px); }
+  body:not(.lateral-abierto) .lateral { transform: translateX(-100%); }
+  body.lateral-abierto .lateral { box-shadow: 8px 0 32px rgb(0 0 0 / 0.35); }
+  .barra .wrap { padding-left: max(60px, env(safe-area-inset-left, 0px)); }
+}
+
+/* secciones */
+section { padding-block: clamp(48px, 8vw, 88px); border-bottom: 1px solid var(--line); }
+.ceja {
+  display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  font: 500 0.74rem/1 var(--font-data); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+}
+.ceja .grado { width: 22px; height: 6px; border-radius: 1px; }
+.cabeza { display: grid; gap: 14px; margin-bottom: 26px; }
+.leer { color: var(--muted); }
+.leer b { color: var(--ink); font-weight: 600; }
+.grafico { width: 100%; min-width: 0; overflow-x: auto; }
+.figura { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 18px 10px; }
+.pie { font-size: 0.82rem; color: var(--muted); margin-top: 10px; }
+
+/* portada */
+.portada { padding-top: clamp(36px, 6vw, 64px); }
+.portada .pregunta { max-width: 22ch; }
+.bajada { font-size: 1.08rem; color: var(--muted); margin-top: 16px; }
+.tira { margin-top: 30px; }
+.tesis {
+  margin: 34px 0 0; padding: 20px 22px 20px 26px; position: relative;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: clamp(1.1rem, 2vw, 1.32rem); line-height: 1.45; max-width: none;
+}
+.tesis::before {   /* el agujero de la etiqueta de precio */
+  content: ""; position: absolute; left: -7px; top: 50%; width: 12px; height: 12px; margin-top: -6px;
+  border-radius: 50%; background: var(--bg); border: 1px solid var(--line);
+}
+.tesis b { color: var(--accent); font-weight: 600; }
+.cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.cifra { border-top: 3px solid var(--c, var(--accent)); background: var(--surface); padding: 14px 16px 16px; border-radius: 0 0 var(--radius) var(--radius); }
+.cifra .valor { font: 600 2.3rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.cifra .que { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
+.cambio { margin-top: 26px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 0.92rem; }
+.cambio dt { font: 500 0.72rem/1.9 var(--font-data); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.cambio dd { margin: 0; }
+@media (max-width: 720px) { .cifras { grid-template-columns: 1fr; } .cambio { grid-template-columns: 1fr; } }
+
+/* cómo lo sabemos */
+details.sabemos { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+details.sabemos > summary {
+  cursor: pointer; list-style: none; padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+  font: 600 0.95rem var(--font-display); letter-spacing: 0.02em;
+}
+details.sabemos > summary::-webkit-details-marker { display: none; }
+details.sabemos > summary::before { content: "+"; font-family: var(--font-data); color: var(--accent); width: 1ch; }
+details.sabemos[open] > summary::before { content: "−"; }
+details.sabemos > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sabemos-cuerpo { padding: 4px 18px 20px; display: grid; gap: 16px; border-top: 1px solid var(--line); }
+.sabemos-cuerpo h3 { margin-top: 10px; font-size: 1rem; }
+.sabemos-cuerpo p, .sabemos-cuerpo li { font-size: 0.94rem; }
+.sabemos-cuerpo ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 72ch; }
+.tabla { overflow-x: auto; min-width: 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 0.72rem var(--font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+td:not(:first-child) { white-space: nowrap; }
+.hip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hip > div { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 6px; }
+.sello { font: 600 0.72rem var(--font-data); letter-spacing: 0.1em; text-transform: uppercase; }
+.sello.si { color: #2fae9f; } .sello.no { color: var(--warn); }
+@media (max-width: 720px) { .hip { grid-template-columns: 1fr; } }
+
+/* la copa */
+.copa { background: var(--sunk); }
+.copa .ceja { color: var(--accent); }
+.controles { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; margin-bottom: 16px; }
+.campo { display: grid; gap: 6px; min-width: 0; }
+.campo > span { font: 500 0.7rem var(--font-data); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+select, button { font: inherit; font-size: 0.92rem; color: var(--ink); }
+select {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 32px 8px 10px; max-width: 100%;
+  appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat;
+}
+select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; font-size: 0.84rem;
+}
+.chip .punto { width: 9px; height: 9px; border-radius: 2px; background: var(--c, var(--muted)); }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.boton { border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: var(--radius); padding: 8px 12px; cursor: pointer; }
+.boton:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.explora { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+.explora > *, .taller > * { min-width: 0; }
+@media (max-width: 900px) { .explora { grid-template-columns: 1fr; } }
+
+/* ficha de inventario */
+.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; position: sticky; top: 72px; }
+@media (min-width: 901px) { .ficha { top: 16px; } }
+.ficha .franja { height: 6px; background: var(--c, var(--line)); }
+.ficha .dentro { padding: 14px 16px 16px; display: grid; gap: 10px; }
+.ficha h3 { font-size: 1.02rem; line-height: 1.3; }
+.ficha .meta { font-size: 0.82rem; color: var(--muted); }
+.ficha dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.86rem; }
+.ficha dt { color: var(--muted); }
+.ficha dd { margin: 0; text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.ficha .veredicto { font-size: 0.88rem; border-top: 1px dashed var(--line); padding-top: 10px; }
+
+/* fabricá un skin */
+.taller { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .taller { grid-template-columns: 1fr; } }
+.mesa { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 16px; }
+.etiqueta {
+  position: relative; background: var(--accent); color: var(--accent-ink); border-radius: var(--radius);
+  padding: 18px 20px 18px 30px; display: grid; gap: 6px;
+}
+.etiqueta::before {
+  content: ""; position: absolute; left: 11px; top: 22px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--sunk);
+}
+.etiqueta .chico { font: 500 0.72rem var(--font-data); letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+.etiqueta .grande { font: 700 clamp(2.6rem, 6vw, 3.6rem)/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.etiqueta .precio { font: 600 1.15rem var(--font-display); }
+.etiqueta p { font-size: 0.9rem; max-width: none; }
+.avisos { display: grid; gap: 8px; margin-top: 12px; }
+.aviso { border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--surface)); padding: 8px 12px; font-size: 0.88rem; border-radius: 0 var(--radius) var(--radius) 0; }
+.aviso.info { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, var(--surface)); }
+.real { font-size: 0.88rem; color: var(--muted); }
+.con-info { display: inline-flex; align-items: center; gap: 8px; }
+.boton-info {
+  width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent;
+  color: var(--muted); font: 600 0.72rem/1 var(--font-body); text-transform: none; letter-spacing: 0; cursor: pointer;
+  display: inline-grid; place-items: center;
+}
+.boton-info:hover, .boton-info:focus-visible { border-color: var(--accent); color: var(--accent); }
+#campo-nivel { position: relative; }
+.ayuda {
+  position: absolute; left: 0; top: 26px; z-index: 50; width: min(320px, 100%);
+  font: 400 0.86rem/1.5 var(--font-body); text-transform: none; letter-spacing: 0; color: var(--ink);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  opacity: 0; visibility: hidden; transform: translateY(-4px); pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+}
+.boton-info:hover + .ayuda, .boton-info:focus-visible + .ayuda, .ayuda.abierta { opacity: 1; visibility: visible; transform: none; }
+.ayuda b { color: var(--accent); font-weight: 600; }
+footer { padding-block: 34px 48px; color: var(--muted); font-size: 0.85rem; }
+footer .wrap { display: grid; gap: 6px; }
+#vg-tooltip-element td::first-letter { text-transform: uppercase; }
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    var abierto = matchMedia("(min-width: 901px)").matches;
+    try { if (abierto && localStorage.getItem("cs2-lateral") === "cerrado") abierto = false; } catch (e) {}
+    if (abierto) document.body.classList.add("lateral-abierto");
+  })();
+</script>
+
+<button type="button" class="conmutador" id="conmutador" aria-controls="lateral" aria-expanded="false" aria-label="Mostrar el índice">
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+</button>
+<aside class="lateral" id="lateral" aria-label="Índice">
+  <div class="lateral-cuerpo" id="lateral-cuerpo">
+    <div class="marca">CS2 <span>·</span> precio antes de salir</div>
+    <nav class="nav" aria-label="Secciones">
+      <a href="#proyecto">El proyecto</a>
+      <span class="grupo">Inspeccionar</span>
+      <a href="#datos">Los datos</a>
+      <a href="#hallazgo">Lo que encontramos</a>
+      <a href="#modelo">El modelo</a>
+      <span class="grupo">Abrir la caja</span>
+      <a href="#explora">Explorá</a>
+      <a href="#proba">Fabricá un skin</a>
+    </nav>
+  </div>
+</aside>
+<div class="velo" id="velo" hidden></div>
+
+<header class="barra">
+  <div class="wrap">
+    <div class="marca">CS2 <span>·</span> precio antes de salir</div>
+  </div>
+</header>
+
+<main>
+<!-- ============================================================ PORTADA -->
+<section id="proyecto" class="portada">
+  <div class="wrap">
+    <div class="ceja"><span class="grado" style="background:var(--accent)"></span>Proyecto integrador · Ciencia de Datos · UTN FRM · Grupo 5K10-13</div>
+    <h1 class="pregunta">¿Se puede saber cuánto va a valer un skin antes de que salga al mercado?</h1>
+    <p class="bajada">Un skin de Counter-Strike 2 tiene rareza, arma, exterior y una forma de conseguirse. Todo eso se sabe el día que Valve lo lanza; el precio, no. Si los atributos ordenan el mercado, tendrían que decir <b>en qué puesto</b> va a quedar un skin nuevo.</p>
+
+    <div class="tira figura">
+      <div id="g-tira" class="grafico" role="img" aria-label="Los skins ordenados por precio, cada uno una raya coloreada por su rareza"></div>
+      <p class="pie">El mercado del {{SNAPSHOT}} en una tira: cada raya es uno de los {{FILAS}} skins, ubicado por su posición de precio (0 = el más barato, 100 = el más caro). El color es la rareza, con los colores del juego. Los rojos se amontonan a la derecha: esa es la pista que sigue todo el proyecto.</p>
+    </div>
+
+    <p class="tesis">Con sus atributos, el modelo explica <b>el {{R2_CV_PCT}} de la posición de precio</b> de un skin del mercado conocido; pero a las colecciones nuevas las pone más caras de lo que son, porque <b>el Armory cambió lo que significa «drop de mapa»</b>.</p>
+
+    <div class="cifras">
+      <div class="cifra" style="--c:var(--blue)">
+        <div class="valor">{{R2_CV}}</div>
+        <div class="que">R² en validación, sobre colecciones que el modelo no vio. Una tabla de rareza y exterior da {{R2_TABLA}}.</div>
+      </div>
+      <div class="cifra" style="--c:var(--accent)">
+        <div class="valor">{{R2_TEST}}</div>
+        <div class="que">R² en las {{COL_TEST}} colecciones más nuevas, la prueba final. Ahí la tabla de rareza y exterior da {{R2_TABLA_TEST}}: el modelo no le gana.</div>
+      </div>
+      <div class="cifra" style="--c:var(--warn)">
+        <div class="valor">{{MAS_CARO}}</div>
+        <div class="que">Es la parte de los skins de esas colecciones nuevas que el modelo predice más caros que su precio real.</div>
+      </div>
+    </div>
+
+    <dl class="cambio">
+      <dt>Datos</dt>
+      <dd>Snapshot del {{SNAPSHOT}}: {{FILAS}} skins de arma, {{COBERTURA}} de los {{MERCADO_ARMAS}} publicados en Steam ese día.</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ============================================================ TALLO 1 · LOS DATOS -->
+<section id="datos">
+  <div class="wrap">
+    <div class="cabeza">
+      <div class="ceja"><span class="grado" style="background:#9fb3cc"></span>Inspeccionar · Los datos</div>
+      <h2>La mitad de los skins cuesta menos de USD {{PRECIO_MED}}, y el más caro vale {{VECES_RANGO}} veces más que el más barato</h2>
+      <p class="leer">Los precios van de USD {{PRECIO_MIN}} a USD {{PRECIO_MAX}}. En dólares, unos pocos skins caros dominarían cualquier error, y el nivel del mercado sube y baja todas las semanas. Por eso el proyecto no predice el precio: predice <b>la posición</b> del skin en el mercado de su día, de 0 a 100.</p>
+    </div>
+    <div class="figura"><div id="g-datos" class="grafico" role="img" aria-label="Histograma del precio en escala logarítmica"></div>
+      <p class="pie">Cada barra cuenta los skins de un rango de precio. El eje está en escala logarítmica: cada marca vale diez veces la anterior.</p></div>
+
+    <details class="sabemos">
+      <summary>Cómo lo sabemos</summary>
+      <div class="sabemos-cuerpo">
+        <h3>De dónde salen</h3>
+        <p>Un pipeline de Airflow (<code>pipeline/cs2_pipeline.py</code>, siete tareas) baja el mismo día dos fuentes: los precios del Steam Community Market y el catálogo de atributos de ByMykel (rareza, arma, colección, caja, rango de desgaste). Los guarda crudos en la capa bronce, los limpia en plata, los une y publica un CSV con su JSON de calidad. Estos datos son la corrida del <b>{{SNAPSHOT}}</b> (datos frescos: {{DATOS_FRESCOS}}).</p>
+        <p><b>Una fila</b> es un skin de arma tal como se vende en Steam: arma + diseño + exterior + variante (normal, StatTrak o Souvenir). Hay {{FILAS}} filas, {{SKINS_BASE}} diseños, {{COLECCIONES}} colecciones y {{ARMAS_N}} armas.</p>
+        <h3>Qué se filtró, paso a paso</h3>
+        <div class="tabla"><table>
+          <thead><tr><th>Paso</th><th>Sale</th><th>Quedan</th><th>Por qué</th></tr></thead>
+          <tbody>{{EMBUDO}}</tbody>
+        </table></div>
+        <h3>Qué columnas se descartaron por fuga</h3>
+        <ul>
+          <li><code>sell_price_usd</code>: es de donde sale el objetivo, así que nunca es una entrada.</li>
+          <li><code>sell_listings</code> (cuántos hay a la venta): tiene −0,77 de correlación con el percentil, pero se cuenta junto con el precio y cambia en respuesta a él. Para un skin recién lanzado no existe.</li>
+          <li>No es fuga, pero tampoco entra: <code>antiguedad_col_dias</code>. Para un skin nuevo vale 0, una edad que el entrenamiento nunca vio (sus colecciones tienen entre 3,5 y 13 años).</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================================ TALLO 2 · LO QUE ENCONTRAMOS -->
+<section id="hallazgo">
+  <div class="wrap">
+    <div class="cabeza">
+      <div class="ceja"><span class="grado" style="background:#8847ff"></span>Inspeccionar · Lo que encontramos</div>
+      <h2>Más rareza, más precio, siempre que compares skins que se consiguen de la misma forma</h2>
+      <p class="leer">Cada línea de color es un origen, y todas suben: entre los skins de caja, un Mil-Spec típico está en el puesto {{MED_CAJA_MIL}} de 100 y un Covert en el {{MED_CAJA_COV}}. La línea gris, con todos juntos, se quiebra: los Consumer ({{MED_TODOS_CONS}}) parecen más caros que los Mil-Spec ({{MED_TODOS_MIL}}), porque <b>nunca salen de cajas</b>: caen en mapas viejos y en paquetes de torneo, que valen más. Por eso el modelo necesita el origen además de la rareza.</p>
+    </div>
+    <div class="figura"><div id="g-hallazgo" class="grafico" role="img" aria-label="Percentil mediano por rareza, una línea por origen y una gris con todos juntos"></div></div>
+
+    <details class="sabemos">
+      <summary>Cómo lo sabemos</summary>
+      <div class="sabemos-cuerpo">
+        <p>La posición es el <b>percentil del precio dentro del día</b>: qué porcentaje de los skins de ese día cuesta igual o menos. Se usa en lugar del precio porque el nivel del mercado se mueve (entre el 24/09 y el 15/10 bajó 9,9 %) mientras el orden casi no cambia (Spearman 0,997). Entre rareza y posición, Spearman da {{SPEARMAN_RAREZA}}.</p>
+        <p>Las hipótesis se miden <b>comparando cada skin consigo mismo</b>: el mismo diseño en dos versiones. El diseño y la popularidad no están en ninguna columna, y así ese ruido se cancela.</p>
+        <div class="hip">
+          <div><span class="sello si">Se sostuvo · H3</span><b>El exterior mueve el precio del mismo skin</b>
+            <p>Dentro de cada diseño, la correlación de Spearman entre exterior y posición tiene mediana <b>{{H3_RHO}}</b> en {{H3_SKINS}} diseños: en el {{H3_BAJA}} % de ellos, más gastado es más barato. Entre skins distintos el efecto casi no se ve; comparando cada skin consigo mismo, sí.</p></div>
+          <div><span class="sello no">No se sostuvo · H4</span><b>La dificultad de sacarlo de una caja aporta más allá de la rareza</b>
+            <p>Dentro de cada rareza, entre los {{H4_FILAS}} ítems de caja, la correlación entre <code>neg_log_p_item</code> y la posición es <b>{{H4_R}}</b>: {{H4_SEMAFORO}}. En el modelo termina aportando poco: 0,02 de R².</p></div>
+        </div>
+        <p>También se sostuvo la H2: la versión Souvenir del mismo skin y exterior está más arriba, con d de Cohen <b>{{H2_D}}</b> en {{H2_PARES}} pares y una mediana de +{{H2_MED}} puestos. Los números de esta página están recalculados sobre el snapshot del {{SNAPSHOT}}; en la Entrega 2, con el del 15/10, H3 dio −0,70 y H4 0,225.</p>
+        <p><b>Cómo se armó el gráfico.</b> Para cada origen y cada rareza se toma la mediana de la posición (sólo los grupos con 20 skins o más: los de caja no tienen Consumer ni Industrial). Rareza en el eje horizontal, en su orden del juego; mediana en el vertical, de 0 a 100; una línea por origen, con los mismos colores de origen que usa toda la aplicación. La línea gris punteada es la mediana sin separar por origen. La mediana y no el promedio, porque dentro de cada grupo hay unos pocos skins muy caros que tirarían el promedio para arriba.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================================ TALLO 3 · EL MODELO -->
+<section id="modelo">
+  <div class="wrap">
+    <div class="cabeza">
+      <div class="ceja"><span class="grado" style="background:#eb4b4b"></span>Inspeccionar · El modelo</div>
+      <h2>El modelo explica el {{R2_CV_PCT}} de la posición en el mercado conocido, pero en las colecciones nuevas no le gana a una tabla de rareza y exterior</h2>
+      <p class="leer">Cada fila es un modelo, medido dos veces: en validación (azul), con colecciones que no vio pero de épocas conocidas, y en la prueba final (ámbar), con las {{COL_TEST}} colecciones lanzadas desde {{TEST_DESDE}}. El <b>{{ELEGIDO}}</b> cae de {{R2_CV}} a {{R2_TEST}} y queda por debajo de la tabla, que cae menos.</p>
+    </div>
+    <div class="figura"><div id="g-modelo" class="grafico" role="img" aria-label="R² de cada modelo en validación y en la prueba"></div></div>
+
+    <div class="cabeza" style="margin-top:34px">
+      <h3>Por qué cae: «drop de mapa» cambió de significado</h3>
+      <p class="leer">Posición típica de cada origen en el entrenamiento (círculo) y en la prueba (triángulo). En el entrenamiento, «drop de mapa» son {{MAPA_COL_TR}} colecciones viejas que ya no caen, y son caras (percentil {{MAPA_TR}}). En la prueba son {{MAPA_COL_TE}} colecciones desde {{MAPA_PRIMERA}}, en su mayoría del <b>Armory</b>: se consiguen con un pase, abundan y valen centavos (percentil {{MAPA_TE}}). El modelo aprendió «mapa = caro» y ahí se equivoca por +{{MAPA_SESGO}} puestos.</p>
+    </div>
+    <div class="figura"><div id="g-armory" class="grafico" role="img" aria-label="Percentil mediano por origen en entrenamiento y en prueba"></div></div>
+
+    <details class="sabemos">
+      <summary>Cómo lo sabemos</summary>
+      <div class="sabemos-cuerpo">
+        <h3>La métrica: R²</h3>
+        <p>R² dice qué parte de la variación de la posición explica el modelo: 0 es lo mismo que predecir el promedio, 1 es perfecto. Se compara directo contra el piso y es la misma escala en todos los pedazos. Se acompaña con el <b>sesgo</b> (el error con signo), porque el R² no dice para qué lado se equivoca el modelo, y acá se equivoca siempre para arriba.</p>
+        <h3>El piso</h3>
+        <p>Predecir siempre el promedio da R² {{R2_PISO}}. El piso que importa es una tabla: el promedio de cada combinación de rareza y exterior, R² {{R2_TABLA}}. Un modelo que no le gana a eso no aprendió nada que una tabla dinámica no sepa.</p>
+        <h3>La validación</h3>
+        <p>La prueba son las {{COL_TEST}} colecciones más nuevas ({{N_TEST}} filas), que no se miran hasta el final. Con las otras {{COL_TRAIN}} ({{N_TRAIN}} filas) se arman cuatro pedazos <b>por colección y en el tiempo</b>: se entrena con las colecciones anteriores y se valida con las siguientes, porque el modelo es para skins que todavía no salieron, y las versiones de un mismo skin no pueden quedar de los dos lados.</p>
+        <div class="tabla"><table><thead><tr><th>Pedazo</th><th>Entrena</th><th>Valida</th><th>Colecciones que valida</th></tr></thead><tbody>{{PEDAZOS}}</tbody></table></div>
+        <h3>La comparación, con media y desvío</h3>
+        <div class="figura"><div id="g-comparacion" class="grafico" role="img" aria-label="R² medio y desvío de cada modelo"></div></div>
+        <div class="tabla"><table><thead><tr><th>Modelo</th><th>R²</th><th>Desvío</th><th>MAE (puntos)</th><th>Sesgo</th></tr></thead><tbody>{{COMPARACION}}</tbody></table></div>
+        <p>Regla escrita antes de mirar: un modelo más complejo reemplaza a la regresión lineal sólo si le gana <b>pedazo por pedazo</b> por más que el desvío de esa diferencia. Restar en los mismos pedazos cancela lo que es difícil para todos.</p>
+        <div class="tabla"><table><thead><tr><th>Contra la lineal</th><th>R² que suma</th><th>Desvío de la diferencia</th><th>Pedazos en que gana</th><th>Resultado</th></tr></thead><tbody>{{DUELOS}}</tbody></table></div>
+        <h3>El ajuste del elegido</h3>
+        <p>Grilla de {{N_GRILLA}} combinaciones con los mismos cuatro pedazos. Ganan {{MEJORES}}: R² {{R2_CV3}} ± {{DESVIO_CV3}}. Frente a los valores por defecto suma {{AJUSTE_DIF}} con un desvío de {{AJUSTE_DESV}}: {{AJUSTE_LECTURA}}.</p>
+        <h3>El resultado en la prueba</h3>
+        <p>R² <b>{{R2_TEST}}</b> contra {{R2_TABLA_TEST}} de la tabla de rareza y exterior y {{R2_PISO_TEST}} del promedio. MAE {{MAE_TEST}} puntos de percentil y sesgo <b>+{{SESGO_TEST1}}</b>: el sesgo es positivo en {{COL_SESGO_POS}} colecciones. Hasta el piso, que no mira ninguna columna, se pasa por +{{SESGO_PISO_TEST}}: las colecciones nuevas están, en conjunto, más abajo (su mediana es el percentil {{MEDIANA_TEST}}, contra 50 en el entrenamiento). Es un corrimiento del mercado, no una columna rota.</p>
+        <h3>Dónde se equivoca, en puntos y en dólares</h3>
+        <p>El percentil predicho se traduce a precio con los precios del mercado de entrenamiento. El error típico es de <b>USD {{USD_MED}}</b> (mediana; el promedio sube a USD {{USD_MEDIO}} por los skins caros). En proporción es grande: el precio predicho está, en la mediana, a {{USD_VECES}} veces el real, y sólo el {{USD_X2}} de los skins queda entre la mitad y el doble. El precio real mediano de la prueba es USD {{USD_REAL}} y el predicho, USD {{USD_PRED}}.</p>
+        <div class="tabla"><table><thead><tr><th>Tramo real</th><th>Skins</th><th>MAE</th><th>Sesgo</th><th>Precio real</th><th>Precio predicho</th><th>Error típico</th></tr></thead><tbody>{{TRAMOS}}</tbody></table></div>
+        <p>Los errores más grandes son todos iguales: skins baratos de colecciones de mapa recientes, puestos como si fueran de mapa viejo.</p>
+        <div class="tabla"><table><thead><tr><th>Skin</th><th>Colección</th><th>Origen</th><th>Real</th><th>Modelo</th><th>Precio real</th><th>Precio del modelo</th></tr></thead><tbody>{{PEORES}}</tbody></table></div>
+        <h3>En qué se apoya</h3>
+        <div class="figura"><div id="g-importancia" class="grafico" role="img" aria-label="Importancia por permutación de cada columna"></div></div>
+        <p>Desordenar una columna y medir cuánto baja el R² en la prueba: {{IMP_1}} ({{IMP_1_V}}) y {{IMP_2}} ({{IMP_2_V}}) sostienen casi todo. Ninguna columna de entrada sale del precio.</p>
+        <p class="pie">Reproducido por <code>build_app.py</code> con scikit-learn {{SKLEARN}} y semilla 42: {{VERIFICADO}}.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================================ COPA 1 · EXPLORÁ -->
+<section id="explora" class="copa">
+  <div class="wrap">
+    <div class="cabeza">
+      <div class="ceja"><span class="grado" style="background:var(--accent)"></span>Abrir la caja · Explorá</div>
+      <h2>Los {{FILAS}} skins: dónde están y dónde los puso el modelo</h2>
+      <p class="leer">Cada punto es un skin: a la derecha, más caro de verdad; arriba, más caro según el modelo. Sobre la línea punteada el modelo acierta. Achicá el universo con los controles, <b>arrastrá sobre la línea de tiempo</b> para quedarte con una época (doble clic la borra) y pasá el mouse o tocá un punto para ver su ficha. Probá elegir «drop de mapa» y arrastrar desde 2024: la nube se va para arriba.</p>
+    </div>
+    <div class="controles" role="group" aria-label="Filtros de la exploración">
+      <label class="campo" for="e-origen"><span>Origen</span>
+        <select id="e-origen"><option value="todos">Todos</option></select></label>
+      <label class="campo" for="e-arma"><span>Arma</span>
+        <select id="e-arma"><option value="todas">Todas</option></select></label>
+      <label class="campo" for="e-lado"><span>Colecciones</span>
+        <select id="e-lado"><option value="-1">Todas</option><option value="0">Conocidas (entrenamiento)</option><option value="1">Nuevas (prueba)</option></select></label>
+      <div class="campo"><span>Rareza</span><div class="chips" id="e-rareza"></div></div>
+    </div>
+    <div class="explora">
+      <div class="figura"><div id="g-explora" class="grafico" role="img" aria-label="Percentil real contra percentil predicho de cada skin, con línea de tiempo de colecciones"></div></div>
+      <aside class="ficha" id="ficha" aria-live="polite">
+        <div class="franja"></div>
+        <div class="dentro">
+          <span class="ceja" style="margin:0">Ficha del skin</span>
+          <h3 id="f-nombre">Tocá un punto</h3>
+          <p class="meta" id="f-meta">La ficha muestra el precio real, lo que dijo el modelo y de dónde sale esa predicción.</p>
+          <dl id="f-datos"></dl>
+          <p class="veredicto" id="f-veredicto"></p>
+        </div>
+      </aside>
+    </div>
+    <details class="sabemos">
+      <summary>Cómo se calculó lo que dice el modelo de cada skin</summary>
+      <div class="sabemos-cuerpo">
+        <p>Ningún skin está predicho por un modelo que lo haya visto. Los de las {{COL_TEST}} colecciones nuevas usan el modelo evaluado en la prueba, el mismo del notebook. Los demás usan el mismo modelo, con los mismos hiperparámetros, entrenado sin la colección del skin (validación cruzada por colección en cinco grupos, R² {{R2_OOF}}). Las predicciones se calculan en <code>build_app.py</code> y viajan con la página: el navegador no entrena nada.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ============================================================ COPA 2 · FABRICÁ UN SKIN -->
+<section id="proba" class="copa" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="cabeza">
+      <div class="ceja"><span class="grado" style="background:var(--accent)"></span>Abrir la caja · Probá el modelo</div>
+      <h2>Fabricá un skin y mirá en qué puesto lo pone el modelo</h2>
+      <p class="leer">Elegí sus atributos como si Valve lo lanzara mañana. La etiqueta muestra el percentil que predice el modelo y lo traduce a un precio del mercado de hoy, con un rango de ± {{MAE_CV}} puntos, el error típico en validación. Si cargás algo que el modelo nunca vio, la etiqueta lo avisa.</p>
+    </div>
+    <div class="taller">
+      <form class="mesa" id="mesa" onsubmit="return false" aria-label="Atributos del skin">
+        <label class="campo" for="p-arma"><span>Arma</span><select id="p-arma"></select></label>
+        <div class="campo"><span>Rareza</span><div class="chips" id="p-rareza"></div></div>
+        <div class="campo"><span>Exterior</span><div class="chips" id="p-exterior"></div></div>
+        <label class="campo" for="p-origen"><span>Cómo se consigue</span><select id="p-origen"></select></label>
+        <div class="campo"><span>Variante</span><div class="chips" id="p-variante"></div></div>
+        <div class="campo" id="campo-nivel">
+          <span class="con-info">Dificultad de sacarlo de la caja
+            <button type="button" class="boton-info" id="info-nivel" aria-describedby="ayuda-nivel" aria-label="Qué significa la dificultad de sacarlo de la caja">i</button>
+            <span class="ayuda" id="ayuda-nivel" role="tooltip">Una caja trae varios skins de la misma rareza. Si ya te tocó esa rareza, ¿qué tan probable es que sea justo este skin? <b>Fácil</b>: hay pocos skins de esa rareza en la caja. <b>Difícil</b>: hay muchos. El modelo le da poco peso a este dato.</span>
+          </span>
+          <div class="chips" id="p-nivel"></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" class="boton" id="p-azar">Copiar un skin real al azar</button>
+        </div>
+        <p class="real" id="p-real" hidden></p>
+      </form>
+      <div>
+        <div class="etiqueta" aria-live="polite">
+          <span class="chico">Puesto predicho en el mercado</span>
+          <span class="grande" id="t-pred">—</span>
+          <span class="precio" id="t-precio">—</span>
+          <p id="t-frase"></p>
+        </div>
+        <div class="avisos" id="t-avisos"></div>
+      </div>
+    </div>
+    <div class="figura" style="margin-top:18px"><div id="g-proba" class="grafico" role="img" aria-label="Escalera del mercado con la posición predicha del skin fabricado"></div>
+      <p class="pie">De fondo, los {{FILAS}} skins reales en su posición, con el color de su rareza. La línea ámbar es tu skin y la banda, el rango de ± {{MAE_CV}} puntos.</p></div>
+    <details class="sabemos">
+      <summary>Cómo llega el modelo a esta página</summary>
+      <div class="sabemos-cuerpo">
+        <p>El modelo es el {{ELEGIDO}} del notebook, reentrenado con los {{FILAS}} skins (como el <code>modelo_percentil_cs2.joblib</code> de la sección 12). En el navegador no corre Python, así que <code>build_app.py</code> le pide al modelo la predicción de <b>cada combinación posible</b> de arma, rareza, exterior, origen y variante ({{N_GRILLA_APP}} casos) y la página la busca: no hay ninguna fórmula aproximada. La única simplificación es la dificultad de drop, que para los ítems de caja va en tres niveles (los cuantiles 15, 50 y 85 de los ítems reales con la misma rareza, exterior y variante).</p>
+        <p>Las variantes posibles dependen del origen, como en el juego: los ítems de caja y de mapa pueden ser normales o StatTrak; los de paquetes de torneo son siempre Souvenir. Si la combinación de arma y rareza, o de origen y rareza, no aparece en los datos, la etiqueta avisa que el modelo nunca vio nada parecido.</p>
+      </div>
+    </details>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Ciencia de Datos · UTN FRM · 2026 · Grupo 5K10-13: Paula Ferreyra, Francisco Manuel, Facundo Espinola, Agustín Behncke, Enzo Cervi, Ezequiel Buxo, Cristian Suarez.</span>
+    <span>Datos: Steam Community Market y catálogo de ByMykel, snapshot del {{SNAPSHOT}}. Página generada por <code>build_app.py</code>.</span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.20.1/build/vega-lite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+<script>
+/*__APP__*/
+</script>
+<script>
+(function () {
+  "use strict";
+  const RAREZAS = ["Consumer Grade", "Industrial Grade", "Mil-Spec Grade", "Restricted", "Classified", "Covert"];
+  const RAREZAS_CORTAS = ["Consumer", "Industrial", "Mil-Spec", "Restricted", "Classified", "Covert"];
+  const EXTERIORES = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"];
+  const VARIANTES = { "caja": ["Normal", "StatTrak"], "drop de mapa": ["Normal", "StatTrak"],
+                      "paquete souvenir": ["Souvenir"], "sin identificar": ["Souvenir"] };
+  const NIVELES = ["Fácil", "Típica", "Difícil"];
+  const vistas = {};
+  const fmt = (x, d) => Number(x).toLocaleString("es-AR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const usd = (x) => "USD " + fmt(x, x < 1000 ? 2 : 0);
+
+  function css(nombre) { return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim(); }
+  const MAYUSCULA = "upper(slice(datum.label, 0, 1)) + slice(datum.label, 1)";
+  function tema() {
+    const ink = css("--ink"), muted = css("--muted"), line = css("--line");
+    return {
+      background: null, font: "IBM Plex Sans, system-ui, sans-serif",
+      view: { stroke: null },
+      axis: { labelColor: muted, titleColor: muted, gridColor: line, domainColor: line, tickColor: line,
+              labelFont: "IBM Plex Sans, system-ui, sans-serif", titleFont: "IBM Plex Sans, system-ui, sans-serif", titleFontWeight: 500, labelFontSize: 11, titleFontSize: 11.5 },
+      legend: { labelColor: ink, titleColor: muted, labelFont: "IBM Plex Sans, system-ui, sans-serif", labelLimit: 320, labelFontSize: 11.5 },
+      text: { color: ink, font: "IBM Plex Sans, system-ui, sans-serif" },
+      header: { labelColor: ink, titleColor: ink }
+    };
+  }
+
+  // Las categorías vienen en minúscula en los datos (y así se filtran); se muestran con mayúscula inicial.
+  function conMayusculas(nodo) {
+    if (Array.isArray(nodo)) { nodo.forEach(conMayusculas); return; }
+    if (!nodo || typeof nodo !== "object") return;
+    if (nodo.encoding) {
+      Object.entries(nodo.encoding).forEach(([canal, def]) => {
+        if (!def || typeof def !== "object" || def.type !== "nominal") return;
+        const clave = canal === "x" || canal === "y" ? "axis" : "legend";
+        if (def[clave] === null) return;
+        def[clave] = Object.assign({ labelExpr: MAYUSCULA }, def[clave] || {});
+      });
+    }
+    Object.values(nodo).forEach(conMayusculas);
+  }
+
+  function preparar(nombre, el) {
+    const spec = JSON.parse(JSON.stringify(APP.ESPECS[nombre]));
+    conMayusculas(spec);
+    spec.datasets = Object.assign({}, spec.datasets || {}, { skins: APP.SKINS });
+    spec.autosize = { type: "fit-x", contains: "padding" };
+    if (spec.vconcat) {
+      const ancho = Math.max(260, el.clientWidth - 70);
+      spec.vconcat.forEach((v) => { v.width = ancho; });
+      delete spec.autosize;
+    }
+    return spec;
+  }
+
+  async function dibujar(nombre, id, renderer) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const previa = vistas[nombre];
+    const estado = previa && previa.estado ? previa.estado() : null;
+    if (previa && previa.view) previa.view.finalize();
+    const r = await vegaEmbed(el, preparar(nombre, el), {
+      actions: false, renderer: renderer || "svg", config: tema(),
+      tooltip: nombre === "explora" ? false
+        : { theme: document.documentElement.dataset.theme === "light" || matchMedia("(prefers-color-scheme: light)").matches && document.documentElement.dataset.theme !== "dark" ? "light" : "dark" },
+      formatLocale: { decimal: ",", thousands: ".", grouping: [3], currency: ["USD ", ""] }
+    });
+    vistas[nombre] = { view: r.view };
+    if (estado) estado(r.view);
+    return r.view;
+  }
+
+  // ---------------------------------------------------------------- explorá
+  const filtros = { f_origen: "todos", f_rareza: -1, f_arma: "todas", f_lado: -1 };
+  function aplicarFiltros(view) {
+    Object.entries(filtros).forEach(([k, v]) => view.signal(k, v));
+    return view.runAsync();
+  }
+  function armarExplora() {
+    const so = document.getElementById("e-origen");
+    APP.ORIGENES.forEach((o) => so.add(new Option(o[0].toUpperCase() + o.slice(1), o)));
+    const sa = document.getElementById("e-arma");
+    APP.ARMAS.forEach((a) => sa.add(new Option(a, a)));
+    const chips = document.getElementById("e-rareza");
+    chips.appendChild(chip("Todas", null, true, () => elegirRareza(-1)));
+    RAREZAS_CORTAS.forEach((r, i) => chips.appendChild(chip(r, APP.COL_RAREZA[i], false, () => elegirRareza(i))));
+    function elegirRareza(i) {
+      [...chips.children].forEach((c, j) => c.setAttribute("aria-pressed", String(j === i + 1)));
+      filtros.f_rareza = i; if (vistas.explora) aplicarFiltros(vistas.explora.view);
+    }
+    so.addEventListener("change", () => { filtros.f_origen = so.value; aplicarFiltros(vistas.explora.view); });
+    sa.addEventListener("change", () => { filtros.f_arma = sa.value; aplicarFiltros(vistas.explora.view); });
+    const sl = document.getElementById("e-lado");
+    sl.addEventListener("change", () => { filtros.f_lado = Number(sl.value); aplicarFiltros(vistas.explora.view); });
+  }
+  function mostrarFicha(d) {
+    const ficha = document.getElementById("ficha");
+    ficha.style.setProperty("--c", APP.COL_RAREZA[d.r]);
+    document.getElementById("f-nombre").textContent = d.n;
+    document.getElementById("f-meta").textContent = d.f ? `Colección lanzada en ${d.f.slice(0, 4)}` : "Colección sin fecha de lanzamiento";
+    const filas = [["Colección", d.c], ["Origen", d.o[0].toUpperCase() + d.o.slice(1)],
+                   ["Rareza", RAREZAS[d.r]], ["Exterior", EXTERIORES[d.w]], ["Variante", d.v],
+                   ["Precio real", usd(d.p)], ["Precio del modelo", usd(d.ph)],
+                   ["Percentil real", fmt(d.y, 1)], ["Percentil del modelo", fmt(d.yh, 1)],
+                   ["Predicción", d.l === 1 ? "Prueba (colección nueva)" : "Entrenamiento"]];
+    document.getElementById("f-datos").innerHTML = filas.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
+    const dif = d.yh - d.y;
+    const lado = d.l === 1 ? "Su colección es de las nuevas: la predicción es la del modelo evaluado en la prueba."
+                           : "La predicción sale de un modelo que no vio su colección.";
+    const juicio = Math.abs(dif) < 10 ? "El modelo lo ubica cerca de donde está."
+      : (dif > 0 ? `El modelo lo pone ${fmt(dif, 0)} puestos más caro de lo que está.` : `El modelo lo pone ${fmt(-dif, 0)} puestos más barato de lo que está.`);
+    document.getElementById("f-veredicto").textContent = juicio + " " + lado;
+  }
+
+  // ---------------------------------------------------------------- fabricá un skin
+  const caso = { arma: APP.ARMAS.indexOf("AK-47"), r: 3, w: 2, o: 0, st: 0, nivel: 1 };
+  function chip(texto, color, presionado, alHacerClic) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.setAttribute("aria-pressed", String(presionado));
+    if (color) { const p = document.createElement("span"); p.className = "punto"; p.style.setProperty("--c", color); b.appendChild(p); }
+    b.appendChild(document.createTextNode(texto));
+    b.addEventListener("click", alHacerClic);
+    return b;
+  }
+  function grupoChips(id, opciones, valor, colores, alElegir) {
+    const cont = document.getElementById(id); cont.innerHTML = "";
+    opciones.forEach((t, i) => cont.appendChild(chip(t, colores ? colores[i] : null, i === valor, () => alElegir(i))));
+  }
+  function pintarMesa() {
+    grupoChips("p-rareza", RAREZAS_CORTAS, caso.r, APP.COL_RAREZA, (i) => { caso.r = i; actualizar(); });
+    grupoChips("p-exterior", EXTERIORES, caso.w, null, (i) => { caso.w = i; actualizar(); });
+    const origen = APP.ORIGENES[caso.o];
+    const vars = VARIANTES[origen];
+    const actual = caso.st ? "StatTrak" : (vars[0] === "Souvenir" ? "Souvenir" : "Normal");
+    grupoChips("p-variante", vars, Math.max(0, vars.indexOf(actual)), null, (i) => { caso.st = vars[i] === "StatTrak" ? 1 : 0; actualizar(); });
+    const esCaja = origen === "caja";
+    document.getElementById("campo-nivel").hidden = !esCaja;
+    if (esCaja) grupoChips("p-nivel", NIVELES, caso.nivel, null, (i) => { caso.nivel = i; actualizar(); });
+    document.getElementById("p-arma").value = String(caso.arma);
+    document.getElementById("p-origen").value = String(caso.o);
+  }
+  function precioDe(p) { return APP.CUANTILES[Math.max(0, Math.min(1000, Math.round(p * 10)))]; }
+  function actualizar(real) {
+    const origen = APP.ORIGENES[caso.o];
+    if (!VARIANTES[origen].includes("StatTrak")) caso.st = 0;
+    pintarMesa();
+    const n = origen === "caja" ? caso.nivel : 1;
+    const clave = [caso.arma, caso.r, caso.w, caso.o, caso.st, n].join("|");
+    const pred = APP.GRILLA[clave];
+    const lo = Math.max(0, pred - APP.MAE_CV), hi = Math.min(100, pred + APP.MAE_CV);
+    document.getElementById("t-pred").textContent = fmt(pred, 0) + " / 100";
+    document.getElementById("t-precio").textContent = `${usd(precioDe(pred))} · entre ${usd(precioDe(lo))} y ${usd(precioDe(hi))}`;
+    const nombre = `${caso.st ? "StatTrak™ " : ""}${origen.includes("souvenir") || origen === "sin identificar" ? "Souvenir " : ""}${APP.ARMAS[caso.arma]} (${EXTERIORES[caso.w]})`;
+    document.getElementById("t-frase").textContent = `Un ${nombre} ${RAREZAS[caso.r]} quedaría más caro que ${fmt(pred, 0)} de cada 100 skins del mercado.`;
+    const avisos = [];
+    const vAR = APP.VISTOS.arma_rareza[`${caso.arma}|${caso.r}`] || 0;
+    const vOR = APP.VISTOS.origen_rareza[`${caso.o}|${caso.r}`] || 0;
+    const vOS = APP.VISTOS.origen_stattrak[`${caso.o}|${caso.st}`] || 0;
+    if (!vAR) avisos.push(`No hay ningún ${APP.ARMAS[caso.arma]} ${RAREZAS[caso.r]} en los datos: el modelo nunca vio esta combinación de arma y rareza, y la predicción es una extrapolación.`);
+    if (!vOR) avisos.push(`Ningún ítem «${origen}» es ${RAREZAS[caso.r]} en los datos: el modelo nunca vio esta combinación de origen y rareza.`);
+    else if (vOR < 50) avisos.push(`Sólo hay ${vOR} ítems «${origen}» ${RAREZAS[caso.r]} en los datos: el modelo vio muy pocos casos así.`);
+    if (caso.st && vOS < 200) avisos.push(`Hay apenas ${vOS} ítems StatTrak de origen «${origen}» en los datos: el modelo vio muy pocos.`);
+    const info = [];
+    if (origen === "drop de mapa") info.push(`Si es de una colección nueva del Armory, el modelo tiende a ponerlo más caro: en la prueba, «drop de mapa» quedó en promedio ${fmt(APP.SESGO_MAPA, 0)} puestos por encima de su posición real.`);
+    if (origen === "caja" && vAR) {
+      const vAN = APP.VISTOS.arma_nivel[`${caso.arma}|${caso.r}|${caso.w}|${caso.st}`] || 0;
+      if (vAN < 15) info.push(`Hay apenas ${vAN} ${APP.ARMAS[caso.arma]} reales con esta rareza y este exterior: con tan pocos casos, cambiar entre fácil/típica/difícil no refleja una relación real para esta arma puntual — el modelo está extrapolando.`);
+    }
+    document.getElementById("t-avisos").innerHTML =
+      avisos.map((a) => `<div class="aviso">${a}</div>`).join("") + info.map((a) => `<div class="aviso info">${a}</div>`).join("");
+    const pr = document.getElementById("p-real");
+    if (real) { pr.hidden = false; pr.textContent = `Copiado de: ${real.n} (${real.c}). Precio real ${usd(real.p)}, percentil ${fmt(real.q, 0)}.`; }
+    else if (real === undefined) { pr.hidden = true; }
+    const v = vistas.proba && vistas.proba.view;
+    if (v) { v.signal("pred", pred); v.signal("lo", lo); v.signal("hi", hi); v.runAsync(); }
+  }
+  const infoNivel = document.getElementById("info-nivel");
+  const ayudaNivel = document.getElementById("ayuda-nivel");
+  // En pantallas táctiles no hay hover: tocar el botón abre y cierra la explicación.
+  infoNivel.addEventListener("click", (ev) => { ev.stopPropagation(); ayudaNivel.classList.toggle("abierta"); });
+  document.addEventListener("click", () => ayudaNivel.classList.remove("abierta"));
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") ayudaNivel.classList.remove("abierta"); });
+
+  function armarMesa() {
+    const sa = document.getElementById("p-arma");
+    APP.ARMAS.forEach((a, i) => sa.add(new Option(a, String(i))));
+    sa.addEventListener("change", () => { caso.arma = Number(sa.value); actualizar(); });
+    const so = document.getElementById("p-origen");
+    APP.ORIGENES.forEach((o, i) => so.add(new Option(o[0].toUpperCase() + o.slice(1), String(i))));
+    so.addEventListener("change", () => { caso.o = Number(so.value); actualizar(); });
+    document.getElementById("p-azar").addEventListener("click", () => {
+      const d = APP.SKINS[Math.floor(Math.random() * APP.SKINS.length)];
+      Object.assign(caso, { arma: APP.ARMAS.indexOf(d.a), r: d.r, w: d.w, o: APP.ORIGENES.indexOf(d.o), st: d.v === "StatTrak" ? 1 : 0, nivel: 1 });
+      actualizar(d);
+    });
+  }
+
+  // ---------------------------------------------------------------- arranque
+  async function todo() {
+    await Promise.all([
+      dibujar("tira", "g-tira"), dibujar("datos", "g-datos"), dibujar("hallazgo", "g-hallazgo", "canvas"),
+      dibujar("modelo", "g-modelo"), dibujar("armory", "g-armory"), dibujar("comparacion", "g-comparacion"),
+      dibujar("importancia", "g-importancia")
+    ]);
+    const ve = await dibujar("explora", "g-explora", "canvas");
+    await aplicarFiltros(ve);
+    ve.addEventListener("click", (ev, item) => { if (item && item.datum && item.datum.n) mostrarFicha(item.datum); });
+    ve.addEventListener("mousemove", (ev, item) => { if (item && item.datum && item.datum.n) mostrarFicha(item.datum); });
+    await dibujar("proba", "g-proba", "canvas");
+    actualizar(null);
+  }
+  armarExplora();
+  armarMesa();
+  pintarMesa();
+  todo();
+
+  let espera;
+  const redibujar = () => { clearTimeout(espera); espera = setTimeout(todo, 250); };
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", redibujar);
+  new MutationObserver(redibujar).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  let anchoPrevio = window.innerWidth;
+  window.addEventListener("resize", () => { if (Math.abs(window.innerWidth - anchoPrevio) > 40) { anchoPrevio = window.innerWidth; redibujar(); } });
+  // Plegar el índice cambia el ancho del contenido sin cambiar el de la ventana.
+  const columna = document.querySelector("main .wrap");
+  let anchoColumna = columna.clientWidth;
+  new ResizeObserver(() => { if (Math.abs(columna.clientWidth - anchoColumna) > 40) { anchoColumna = columna.clientWidth; redibujar(); } }).observe(columna);
+
+  // ---------------------------------------------------------------- índice lateral
+  const lateral = document.getElementById("lateral");
+  const cuerpoLateral = document.getElementById("lateral-cuerpo");
+  const conmutador = document.getElementById("conmutador");
+  const velo = document.getElementById("velo");
+  const escritorio = matchMedia("(min-width: 901px)");
+  const abiertoGuardado = () => { try { return localStorage.getItem("cs2-lateral") !== "cerrado"; } catch (e) { return true; } };
+  function ponerLateral(abierto, recordar) {
+    document.body.classList.toggle("lateral-abierto", abierto);
+    conmutador.setAttribute("aria-expanded", String(abierto));
+    conmutador.setAttribute("aria-label", abierto ? "Ocultar el índice" : "Mostrar el índice");
+    cuerpoLateral.inert = !abierto;
+    velo.hidden = !abierto || escritorio.matches;
+    if (recordar && escritorio.matches) { try { localStorage.setItem("cs2-lateral", abierto ? "abierto" : "cerrado"); } catch (e) {} }
+  }
+  ponerLateral(document.body.classList.contains("lateral-abierto"), false);
+  conmutador.addEventListener("click", () => ponerLateral(!document.body.classList.contains("lateral-abierto"), true));
+  velo.addEventListener("click", () => ponerLateral(false, false));
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !escritorio.matches && document.body.classList.contains("lateral-abierto")) { ponerLateral(false, false); conmutador.focus(); }
+  });
+  escritorio.addEventListener("change", (ev) => ponerLateral(ev.matches && abiertoGuardado(), false));
+  const enlaces = new Map([...lateral.querySelectorAll(".nav a")].map((a) => [a.getAttribute("href").slice(1), a]));
+  enlaces.forEach((a) => a.addEventListener("click", () => { if (!escritorio.matches) ponerLateral(false, false); }));
+  const seccionActual = new IntersectionObserver((entradas) => {
+    entradas.forEach((e) => {
+      if (!e.isIntersecting) return;
+      enlaces.forEach((a) => a.removeAttribute("aria-current"));
+      const a = enlaces.get(e.target.id);
+      if (a) a.setAttribute("aria-current", "location");
+    });
+  }, { rootMargin: "-40% 0px -55% 0px" });
+  enlaces.forEach((_, id) => { const s = document.getElementById(id); if (s) seccionActual.observe(s); });
+})();
+</script>
+</body>
+</html>
