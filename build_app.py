@@ -639,6 +639,10 @@ CAJA_INTRO = {"c": i_col[caja_demo], "caja": g["caja"].dropna().iloc[0] if g["ca
                                           if (gg["wear_orden"] == 2).any() else gg["sell_price_usd"].median()), 2)}
                         for s, gg in g.groupby("skin_id")]}
 CAJA_INTRO["img"] = img_caja(CAJA_INTRO["caja"])
+_llave = CAT["cajas"].get(CAJA_INTRO["caja"], {}).get("llave", {})
+CAJA_INTRO["llave"] = _llave.get("nombre", "Llave")
+CAJA_INTRO["llave_img"] = img_url(_llave.get("imagen", ""))
+CAJA_INTRO["icono"] = img_coleccion(caja_demo)
 
 INTRO = {"variantes": VARIANTES_INTRO, "gancho": GANCHO, "rareza": RAREZA_INTRO, "exterior": EXTERIOR_INTRO, "veces_st": round(VECES_ST, 2),
          "veces_sv": round(VECES_SV, 2), "origen": ORIGEN_INTRO, "fila": FILA_INTRO, "caja": CAJA_INTRO}

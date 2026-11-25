@@ -79,6 +79,16 @@ En el repositorio: *Settings → Pages → Build and deployment → Deploy from 
 3. **El tallo (Inspeccionar)**: *Los datos*; *Lo que encontramos* (rareza y origen, en dos pasos); *El modelo* (A cómo lo probamos, B qué modelo, C skin por skin, D por qué se equivoca: el Armory, E cómo va a mejorar y qué nos llevamos). El Armory se cuenta donde lo descubrimos: en el modelo.
 4. **La copa (Abrir la caja)**: *Explorá el mercado* (estante de colecciones por año, filtros, muro de skins y ficha con todas las versiones y lo que dijo el modelo) y *Probá el modelo* (el arma sin diseño, con el color de su rareza, StatTrak y el desgaste).
 
+### Animaciones y 3D
+
+La página carga tres librerías desde jsDelivr, con la versión fija:
+
+- **Vega-Lite / Altair** para todos los gráficos.
+- **GSAP 3.13** (gratis, incluidos sus plugins) para las secuencias: la apertura de la caja, el muro de skins que se reacomoda al filtrar (Flip), la foto que vuela de la carta a la ficha, las colecciones que se inclinan al pasar el mouse, los títulos que entran palabra por palabra (SplitText + ScrollTrigger) y el puesto de *Probá el modelo*, que cuenta hasta el valor nuevo.
+- **Three.js 0.170** sólo para la caja 3D de «Cómo se consigue». La caja, la tapa con bisagra, las trabas, la cerradura y la llave están hechas con formas simples de Three.js (no son modelos del juego). Se carga recién cuando la sección está cerca.
+
+Si alguna librería no carga, la página funciona igual: sin GSAP queda la ruleta simple, y sin WebGL queda la imagen 2D de la caja. Con «reducir movimiento» activado en el sistema, las animaciones se saltan.
+
 ### La era Armory
 
 Para el modelo, todo skin con colección que no sale de caja ni de paquete es «drop de mapa». La página separa, sólo para explicar, las colecciones de drop lanzadas desde la actualización *The Armory* (2/10/2024):
