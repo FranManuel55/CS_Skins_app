@@ -60,6 +60,7 @@ def main():
     skins = json.loads(bajar(API.format("skins")))
     cols = json.loads(bajar(API.format("collections")))
     crates = json.loads(bajar(API.format("crates")))
+    llaves = json.loads(bajar(API.format("keys")))
     bases = json.loads(bajar(API.format("base_weapons")))
     armas = {b["name"]: b.get("image") or "" for b in bases if b["name"] in set(df["weapon"])}
 
@@ -84,6 +85,11 @@ def main():
     for k in crates:
         if k.get("name") in cajas:
             caja_out[k["name"]] = {"imagen": k.get("image") or "", "fecha": k.get("first_sale_date")}
+    # la llave que abre cada caja (para la animación de apertura)
+    for l in llaves:
+        for k in l.get("crates", []):
+            if k.get("name") in caja_out:
+                caja_out[k["name"]]["llave"] = {"nombre": l["name"], "imagen": l.get("image") or ""}
 
     DESTINO.mkdir(parents=True, exist_ok=True)
     (DESTINO / "catalogo.json").write_text(json.dumps(

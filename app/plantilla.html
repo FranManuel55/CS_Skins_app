@@ -252,6 +252,80 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 #caja-foto.abierta img { opacity: 0.25; transform: scale(1.1); }
 .premio { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius); background: color-mix(in srgb, var(--c) 14%, var(--surface)); border: 1px solid var(--c); animation: aparecer 0.5s cubic-bezier(.2,.8,.2,1) both; }
 .premio img { width: 74px; height: 56px; object-fit: contain; }
+/* la caja: escena 3D, ruleta y revelación (siempre oscura, como en el juego) */
+.caja3d { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; margin-top: 22px; }
+@media (max-width: 900px) { .caja3d { grid-template-columns: 1fr; } }
+.escena { position: relative; min-height: 400px; border-radius: var(--radius); overflow: hidden; border: 1px solid #2b313a; isolation: isolate;
+  background: radial-gradient(110% 80% at 50% 18%, #2c323c 0%, #161a20 52%, #0a0c0f 100%); color: #eef1f5; }
+@media (max-width: 600px) { .escena { min-height: 470px; } }
+.escena .lienzo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.escena-rotulo { position: absolute; left: 14px; top: 12px; z-index: 3; font: 600 0.74rem var(--font-data); letter-spacing: 0.14em; text-transform: uppercase; color: #c9d1db; }
+.escena-rotulo::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: #f0a93b; margin-right: 8px; box-shadow: 0 0 10px #f0a93b; }
+.sonido { position: absolute; right: 12px; top: 10px; z-index: 6; border: 1px solid rgb(255 255 255 / 0.2); background: rgb(255 255 255 / 0.06); color: #dfe5ec; border-radius: 999px; padding: 3px 10px; font-size: 0.74rem; cursor: pointer; }
+.sonido[aria-pressed="true"] { border-color: #f0a93b; color: #f0a93b; }
+.escena-2d { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; }
+.escena-2d img { width: min(62%, 320px); filter: drop-shadow(0 22px 26px rgb(0 0 0 / 0.6)); }
+.llave-2d { position: absolute; left: 50%; top: 56%; width: 96px; z-index: 2; pointer-events: none; filter: drop-shadow(0 10px 14px rgb(0 0 0 / 0.6)); }
+.escena .ruleta { position: absolute; left: 12px; right: 12px; top: 50%; margin-top: -66px; z-index: 4; opacity: 0; visibility: hidden; background: rgb(8 10 13 / 0.88); border-color: rgb(255 255 255 / 0.12); box-shadow: 0 20px 50px rgb(0 0 0 / 0.6); }
+.escena .ruleta::before { background: linear-gradient(90deg, #080a0d, transparent 16%, transparent 84%, #080a0d); }
+.escena .ruleta::after { display: none; }
+.ruleta .marca { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 3px; margin-left: -1.5px; z-index: 3; background: #f5c04a; box-shadow: 0 0 14px #f5c04a, 0 0 2px #fff; border-radius: 2px; }
+.escena .cinta-ruleta { will-change: transform, filter; }
+.escena .cinta-ruleta .foto { background: linear-gradient(180deg, #1b2028, #12161b); border-color: rgb(255 255 255 / 0.08); }
+.revelacion { position: absolute; inset: 0; z-index: 5; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 22px 22px 18px; opacity: 0; visibility: hidden; perspective: 1000px;
+  background: radial-gradient(55% 75% at 30% 50%, color-mix(in srgb, var(--c, #4b69ff) 50%, transparent), transparent 72%), linear-gradient(180deg, #0d1014, #07090b); }
+@media (max-width: 600px) { .revelacion { grid-template-columns: 1fr; align-content: center; text-align: center; padding: 34px 14px 14px; gap: 6px; } }
+.rev-rayos { position: absolute; left: 30%; top: 50%; width: 1100px; height: 1100px; margin: -550px 0 0 -550px; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c, #4b69ff) 42%, transparent) 0deg 5deg, transparent 5deg 15deg);
+  -webkit-mask: radial-gradient(circle, #000 0, transparent 52%); mask: radial-gradient(circle, #000 0, transparent 52%); }
+@media (max-width: 600px) { .rev-rayos { left: 50%; top: 32%; } }
+.rev-chispas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.rev-arma, .rev-insp { position: relative; z-index: 1; display: grid; place-items: center; transform-style: preserve-3d; min-width: 0; }
+.rev-arma img { width: 100%; max-width: 460px; aspect-ratio: 4 / 3; object-fit: contain; filter: drop-shadow(0 22px 30px rgb(0 0 0 / 0.65)); }
+.rev-arma .brillo { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(100deg, transparent 42%, rgb(255 255 255 / 0.8) 50%, transparent 58%) 160% 0 / 300% 100% no-repeat; mix-blend-mode: overlay;
+  -webkit-mask: var(--img) center / contain no-repeat; mask: var(--img) center / contain no-repeat; }
+.rev-arma[hidden], .rev-insp[hidden] { display: none; }
+.rev-insp .inspector { width: 100%; max-width: 440px; }
+@media (max-width: 600px) { .rev-arma img { max-width: 250px; } .rev-insp .inspector { max-width: 280px; } }
+.rev-texto { position: relative; z-index: 3; display: grid; gap: 8px; min-width: 0; }
+.rev-rareza { font: 700 0.76rem var(--font-data); letter-spacing: 0.16em; text-transform: uppercase; color: var(--c); text-shadow: 0 0 12px color-mix(in srgb, var(--c) 60%, transparent); }
+.rev-barra { display: block; height: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 16px var(--c); transform-origin: left; }
+@media (max-width: 600px) { .rev-barra { transform-origin: center; } }
+.rev-nombre { font: 700 clamp(1.15rem, 2.5vw, 1.8rem)/1.15 var(--font-display); color: #fff; min-height: 1.15em; text-wrap: balance; }
+.rev-precio { font: 500 0.95rem var(--font-data); color: #c9d1db; }
+.rev-precio b { font-size: 1.55rem; color: #fff; margin-right: 6px; }
+.rev-balance { font-size: 0.9rem; color: #c9d1db; }
+.rev-balance .pierde { color: #ff8a78; font-weight: 600; } .rev-balance .gana { color: #7fe08f; font-weight: 600; }
+.rev-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 600px) { .rev-botones { justify-content: center; } }
+.revelacion .boton { color: #eef1f5; border-color: rgb(255 255 255 / 0.28); background: rgb(255 255 255 / 0.06); }
+.revelacion .boton.lleno { background: var(--c); border-color: var(--c); color: #07090b; font-weight: 600; }
+.caja-panel { display: grid; gap: 12px; align-content: start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+.caja-panel h4 { font: 600 1.02rem var(--font-display); }
+.caja-panel .muted { font-size: 0.86rem; margin-top: 4px; }
+.odds { display: grid; gap: 6px; }
+.odds .fila { display: grid; grid-template-columns: 78px minmax(0, 1fr) 58px; gap: 8px; align-items: center; font-size: 0.8rem; }
+.odds .barra { height: 8px; border-radius: 4px; background: var(--sunk); overflow: hidden; }
+.odds .barra i { display: block; height: 100%; background: var(--c); border-radius: 4px; transform-origin: left; }
+.odds .num { font-family: var(--font-data); text-align: right; }
+.odds .especial { opacity: 0.6; }
+.nota-odds { font-size: 0.74rem; color: var(--muted); }
+.contenido-caja { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.contenido-caja .mini { aspect-ratio: 4 / 3; border-radius: 4px; background: var(--sunk); border-bottom: 2px solid var(--c); display: grid; place-items: center; overflow: hidden; }
+.contenido-caja .mini img { width: 100%; height: 100%; object-fit: contain; }
+.llave-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius); background: var(--surface-2); border: 1px dashed color-mix(in srgb, #f0a93b 55%, var(--line)); }
+.llave-card img { width: 64px; height: 48px; object-fit: contain; flex: none; }
+.llave-card div { display: grid; font-size: 0.82rem; } .llave-card span { color: var(--muted); }
+.balance-caja { font: 0.8rem/1.45 var(--font-data); color: var(--muted); }
+.balance-caja b { color: var(--ink); }
+.vuela { position: fixed; z-index: 70; object-fit: contain; pointer-events: none; filter: drop-shadow(0 16px 24px rgb(0 0 0 / 0.5)); }
+/* con GSAP: las transformaciones las maneja GSAP y el hover usa translate/scale sueltos */
+.con-gsap .tskin { animation: none; transition: border-color 0.2s, translate 0.25s cubic-bezier(.2,.8,.2,1), box-shadow 0.25s; }
+.con-gsap .tskin:hover, .con-gsap .tskin[aria-pressed="true"] { transform: none; translate: 0 -3px; }
+.con-gsap .coleccion { transition: translate 0.25s cubic-bezier(.2,.8,.2,1), border-color 0.2s, opacity 0.3s, box-shadow 0.25s; }
+.con-gsap .coleccion:hover, .con-gsap .coleccion[aria-pressed="true"] { transform: none; translate: 0 -4px; }
+.con-gsap .coleccion img { transition: scale 0.3s, rotate 0.3s; }
+.con-gsap .coleccion:hover img { transform: none; scale: 1.1; rotate: -4deg; }
 /* el Armory */
 .armory-flujo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; position: relative; }
 @media (max-width: 900px) { .armory-flujo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -470,6 +544,7 @@ select:focus-visible, button:focus-visible, input:focus-visible { outline: 2px s
 footer { padding-block: 34px 48px; color: var(--muted); font-size: 0.85rem; }
 footer .wrap { display: grid; gap: 6px; }
 </style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
 <script>
@@ -608,17 +683,38 @@ footer .wrap { display: grid; gap: 6px; }
         <p class="leer">Cada colección se reparte de una forma, y eso decide cuántas copias hay. En los datos hay cuatro etiquetas. La cifra grande es el precio típico.</p>
       </div>
       <div class="origenes revelar" id="origenes"></div>
-      <div class="caja-demo revelar">
-        <div class="foto" id="caja-foto"></div>
-        <div>
-          <h4 id="caja-titulo">Probá abrir una caja</h4>
-          <p class="muted" style="font-size:.92rem;margin-top:4px">La llave cuesta unos USD 2,50. Probabilidades y skins reales de la caja.</p>
-          <div class="ruleta" style="margin-top:10px"><div class="cinta-ruleta" id="ruleta"></div></div>
-          <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
-            <button type="button" class="boton lleno" id="abrir-caja">Abrir la caja</button>
-            <span class="resultado" id="caja-resultado" aria-live="polite"></span>
+      <div class="caja3d revelar" id="caja3d">
+        <div class="escena" id="escena">
+          <span class="escena-rotulo" id="escena-rotulo">Caja</span>
+          <button type="button" class="sonido" id="caja-sonido" aria-pressed="false">Sonido: no</button>
+          <div class="escena-2d" id="caja-foto"></div>
+          <div class="ruleta" id="ruleta-marco"><div class="cinta-ruleta" id="ruleta"></div><i class="marca" aria-hidden="true"></i></div>
+          <div class="revelacion" id="revelacion">
+            <div class="rev-rayos" aria-hidden="true"></div><canvas class="rev-chispas" aria-hidden="true"></canvas>
+            <div class="rev-arma" id="rev-arma"><img alt=""><span class="brillo" aria-hidden="true"></span></div>
+            <div class="rev-insp" id="rev-insp" hidden></div>
+            <div class="rev-texto" aria-live="polite">
+              <span class="rev-rareza"></span><span class="rev-barra" aria-hidden="true"></span>
+              <h4 class="rev-nombre"></h4>
+              <p class="rev-precio"><b>USD 0,00</b>en Field-Tested</p>
+              <p class="rev-balance"></p>
+              <div class="rev-botones">
+                <button type="button" class="boton lleno" id="rev-otra">Abrir otra</button>
+                <button type="button" class="boton" id="rev-insp-btn">Inspeccionar</button>
+                <button type="button" class="boton" id="rev-cerrar">Volver a la caja</button>
+              </div>
+            </div>
           </div>
         </div>
+        <aside class="caja-panel">
+          <div><h4 id="caja-titulo">Probá abrir una caja</h4>
+            <p class="muted">Probabilidades oficiales y skins reales de la caja. El precio de cada skin es el de Field-Tested.</p></div>
+          <div class="odds" id="caja-odds"></div>
+          <div class="contenido-caja" id="caja-contenido"></div>
+          <div class="llave-card"><img id="llave-img" alt=""><div><b id="llave-nombre">Llave</b><span>Se le compra a Valve: unos USD 2,50</span></div></div>
+          <button type="button" class="boton lleno" id="abrir-caja">Usar la llave</button>
+          <p class="balance-caja" id="caja-resultado" aria-live="polite">Todavía no abriste ninguna.</p>
+        </aside>
       </div>
     </div>
 
@@ -940,6 +1036,10 @@ footer .wrap { display: grid; gap: 6px; }
 <script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.20.1/build/vega-lite.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/Flip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
 <script>
 /*__APP__*/
 </script>
@@ -963,6 +1063,10 @@ footer .wrap { display: grid; gap: 6px; }
   const rz = (r, txt) => `<span class="r${r}">${txt != null ? txt : RC[r]}</span>`;
   const quieto = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // GSAP (animación) es opcional: si el CDN no responde, la página funciona igual con CSS.
+  const G = window.gsap || null, FLIP = G && window.Flip, ST = G && window.ScrollTrigger, SPLIT = G && window.SplitText;
+  if (G) { [ST, FLIP, SPLIT].forEach((pl) => { if (pl) gsap.registerPlugin(pl); }); document.documentElement.classList.add("con-gsap"); }
+  const animar = G && !quieto;
 
   // ---------------------------------------------------------------- imágenes
   function src(s, tam) {
@@ -1273,41 +1377,387 @@ footer .wrap { display: grid; gap: 6px; }
         <span class="muted" style="font-size:.8rem">${fmt(o.filas, 0)} skins · ${o.colecciones} colecciones</span>
       </div>`).join("");
   }
+  // ---------------------------------------------------------------- 4 · la caja: escena 3D (Three.js) + secuencia (GSAP)
+  const PROBS_CAJA = [[2, 79.92], [3, 15.98], [4, 3.2], [5, 0.64]];
+  const LLAVE_USD = 2.5;
+
   function armarCaja() {
-    const c = APP.INTRO.caja, caja = document.getElementById("caja-foto");
-    caja.style.setProperty("--c", "#f0a93b");
-    caja.innerHTML = `<img src="${esc(src(c.img, 256))}" alt="${esc(c.caja)}" loading="lazy" onerror="this.parentNode.classList.add('sin-imagen')"><span class="respaldo">${esc(c.caja)}</span>`;
+    const c = APP.INTRO.caja;
+    const escenaEl = document.getElementById("escena"), plano = document.getElementById("caja-foto");
+    const cinta = document.getElementById("ruleta"), ruleta = document.getElementById("ruleta-marco"), marca = ruleta.querySelector(".marca");
+    const boton = document.getElementById("abrir-caja"), salida = document.getElementById("caja-resultado");
+    const rev = document.getElementById("revelacion"), revArma = document.getElementById("rev-arma"), revInsp = document.getElementById("rev-insp");
+    const revImg = revArma.querySelector("img"), brillo = revArma.querySelector(".brillo"), rayos = rev.querySelector(".rev-rayos");
+    const insBtn = document.getElementById("rev-insp-btn"), sonBtn = document.getElementById("caja-sonido");
     document.getElementById("caja-titulo").textContent = `Probá abrir una ${c.caja}`;
+    document.getElementById("escena-rotulo").textContent = c.caja;
+    plano.innerHTML = `<img src="${esc(src(c.img, 360))}" alt="${esc(c.caja)}" onerror="this.style.visibility='hidden'">`;
+    const li = document.getElementById("llave-img");
+    li.onerror = () => { li.style.visibility = "hidden"; }; li.src = src(c.llave_img, 128);
+    document.getElementById("llave-nombre").textContent = c.llave || "Llave";
+
     const porRareza = {};
     c.items.forEach((it) => { (porRareza[it.r] = porRareza[it.r] || []).push(it); });
-    const probs = [[2, 79.92], [3, 15.98], [4, 3.2], [5, 0.64]].filter(([r]) => porRareza[r]);
+    const probs = PROBS_CAJA.filter(([r]) => porRareza[r]);
     const total = probs.reduce((a, [, p]) => a + p, 0);
+    document.getElementById("caja-odds").innerHTML = probs.slice().reverse().map(([r, p]) => `<div class="fila"><span>${rz(r)}</span><span class="barra"><i style="--c:${APP.COL_RAREZA[r]};width:${Math.max(2.5, p)}%"></i></span><span class="num">${fmt(p, 2)} %</span></div>`).join("") +
+      `<div class="fila especial"><span>Especial</span><span class="barra"><i style="--c:#e4ae39;width:2.5%"></i></span><span class="num">0,26 %</span></div>
+       <p class="nota-odds">Lo «especial» (cuchillos) no está en nuestros datos, así que la simulación reparte el resto.</p>`;
+    document.getElementById("caja-contenido").innerHTML = c.items.slice().sort((a, b) => b.r - a.r || b.p - a.p).map((it) =>
+      `<span class="mini" style="--c:${APP.COL_RAREZA[it.r]}" title="${esc(D[it.d][0])} · ${usd(it.p)}"><img src="${esc(imgDis(it.d))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"></span>`).join("");
+    if (G && !quieto) gsap.from("#caja-odds .barra i", { scaleX: 0, duration: 1, ease: "power3.out", stagger: 0.08, scrollTrigger: ST ? { trigger: "#caja-odds", start: "top 90%", once: true } : undefined });
+
     const sortear = () => { let x = Math.random() * total; for (const [r, p] of probs) { if ((x -= p) <= 0) { const l = porRareza[r]; return l[Math.floor(Math.random() * l.length)]; } } return porRareza[probs[0][0]][0]; };
-    const cinta = document.getElementById("ruleta"), boton = document.getElementById("abrir-caja"), salida = document.getElementById("caja-resultado");
     const llenar = (final) => { cinta.innerHTML = Array.from({ length: 40 }, (_, i) => i === 34 ? final : sortear()).map((it) => foto(imgDis(it.d), it.d)).join(""); };
     llenar(sortear());
-    const ruleta = cinta.parentNode;
-    boton.addEventListener("click", () => {
-      const premio = sortear(); llenar(premio);
-      cinta.style.transition = "none"; cinta.style.transform = "translateX(0)";
-      boton.disabled = true; salida.innerHTML = "";
-      caja.classList.remove("abierta"); caja.classList.add("abriendo");
-      const girar = () => {
-        caja.classList.remove("abriendo"); caja.classList.add("abierta");
-        const centro = ruleta.clientWidth / 2, destino = -(34 * 126 + 8 + 60 - centro + (Math.random() * 60 - 30));
-        ruleta.classList.add("girando");
-        requestAnimationFrame(() => requestAnimationFrame(() => { cinta.style.transition = "transform 4.6s cubic-bezier(.08,.8,.12,1)"; cinta.style.transform = `translateX(${destino}px)`; }));
-        setTimeout(() => ruleta.classList.remove("girando"), 2600);
-        setTimeout(fin, 4700);
+
+    let abiertas = 0, ganado = 0;
+    const balance = () => {
+      const neto = ganado - abiertas * LLAVE_USD;
+      salida.innerHTML = `Abriste <b>${abiertas}</b> ${abiertas === 1 ? "caja" : "cajas"}: pagaste <b>${usd(abiertas * LLAVE_USD)}</b> en llaves y sacaste <b>${usd(ganado)}</b> en skins. Balance: <b style="color:${neto < 0 ? "var(--warn)" : "var(--teal)"}">${neto < 0 ? "−" : "+"}${usd(Math.abs(neto))}</b>.`;
+    };
+
+    // sonido opcional (sólo después de un clic, como piden los navegadores)
+    let audio = null, sonido = false;
+    sonBtn.addEventListener("click", () => { sonido = !sonido; sonBtn.setAttribute("aria-pressed", String(sonido)); sonBtn.textContent = sonido ? "Sonido: sí" : "Sonido: no"; });
+    const tono = (f, dur, vol, tipo, t0) => {
+      if (!sonido) return;
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + (t0 || 0);
+        o.type = tipo || "square"; o.frequency.value = f; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur + 0.01);
+      } catch (e) { /* sin audio */ }
+    };
+    const tic = () => tono(2100, 0.03, 0.035);
+    const fanfarria = (r) => [523, 659, 784, 1047].slice(0, 2 + Math.max(0, r - 2)).forEach((f, i) => tono(f, 0.35, 0.05, "triangle", i * 0.09));
+
+    if (!G) {   // sin GSAP: la versión simple de siempre
+      boton.addEventListener("click", () => {
+        const premio = sortear(); llenar(premio);
+        ruleta.style.visibility = "visible"; ruleta.style.opacity = "1";
+        cinta.style.transform = `translateX(${-(34 * 126 + 8 + 60 - ruleta.clientWidth / 2)}px)`;
+        abiertas++; ganado += premio.p; balance();
+      });
+      return;
+    }
+
+    // ---- escena: 2D mientras carga (o si no hay WebGL), 3D cuando está lista
+    let escena = escena2D(), ocupado = false, ultimo = null, giroRayos = null, flota = null;
+    function escena2D() {
+      const img = plano.querySelector("img");
+      const llave = document.createElement("img"); llave.className = "llave-2d"; llave.alt = ""; llave.src = src(c.llave_img, 128);
+      llave.onerror = () => { llave.style.display = "none"; };
+      escenaEl.appendChild(llave); gsap.set(llave, { autoAlpha: 0, xPercent: -50, yPercent: -50 });
+      const vaiven = quieto ? null : gsap.to(img, { y: -8, rotation: 1.2, duration: 2.4, yoyo: true, repeat: -1, ease: "sine.inOut" });
+      return {
+        lienzo: null,
+        abrir() {
+          if (vaiven) vaiven.pause();
+          return gsap.timeline()
+            .fromTo(llave, { autoAlpha: 0, x: 240, y: -140, rotation: -70, scale: 0.5 }, { autoAlpha: 1, x: 0, y: 0, rotation: 0, scale: 1, duration: 0.8, ease: "power3.out" })
+            .to(llave, { rotation: 90, duration: 0.3, ease: "back.out(2)" })
+            .to(img, { rotation: -5, x: -6, duration: 0.05, yoyo: true, repeat: 7, ease: "none" }, "<")
+            .to(llave, { autoAlpha: 0, scale: 0.4, duration: 0.25 })
+            .to(img, { scale: 1.3, filter: "brightness(2.4)", duration: 0.4, ease: "power2.in" }, "<")
+            .to(plano, { autoAlpha: 0, duration: 0.3 });
+        },
+        reset() {
+          return gsap.timeline({ onComplete: () => { if (vaiven) vaiven.resume(); } })
+            .set(img, { scale: 1, x: 0, rotation: 0, filter: "none" }).to(plano, { autoAlpha: 1, duration: 0.4 });
+        },
+        quitar() { if (vaiven) vaiven.kill(); llave.remove(); }
       };
-      const fin = () => {
-        boton.disabled = false; boton.textContent = "Abrir otra";
-        const d = D[premio.d], tile = cinta.children[34];
-        if (tile) tile.classList.add("ganador");
-        salida.innerHTML = `<span class="premio" style="--c:${APP.COL_RAREZA[d[2]]}"><img src="${esc(imgDis(premio.d))}" alt="" onerror="this.style.display='none'"><span>Te tocó ${rz(d[2], esc(d[0]))}<br>${RC[d[2]]} · ${usd(premio.p)} en Field-Tested. ${premio.p < 2.5 ? "Menos que la llave." : "¡Más que la llave!"}</span></span>`;
+    }
+    let pendiente3D = null;
+    const usar3D = (e) => { if (!e) return; if (ocupado) { pendiente3D = e; return; } escena.quitar(); escena = e; gsap.to(plano, { autoAlpha: 0, duration: 0.6 }); gsap.from(e.lienzo, { opacity: 0, duration: 0.8 }); };
+    new IntersectionObserver((es, io) => {
+      if (!es[0].isIntersecting) return; io.disconnect();
+      crearEscena3D(escenaEl, c).then(usar3D).catch((err) => console.warn("La caja queda en 2D:", err && err.message));
+    }, { rootMargin: "500px" }).observe(escenaEl);
+
+    // ---- la ruleta
+    function girar() {
+      const paso = 126, centro = ruleta.clientWidth / 2, dest = -(34 * paso + 8 + 60 - centro + (Math.random() * 84 - 42));
+      if (quieto) { gsap.set(cinta, { x: dest }); return Promise.resolve(); }
+      let idxPrev = null, xPrev = 0;
+      return gsap.fromTo(cinta, { x: 0 }, {
+        x: dest, duration: 6.2, ease: "power4.out",
+        onUpdate() {
+          const x = gsap.getProperty(cinta, "x"), v = Math.abs(x - xPrev); xPrev = x;
+          cinta.style.filter = v > 2 ? `blur(${Math.min(3, v / 9).toFixed(2)}px)` : "";
+          const idx = Math.floor((centro - x - 8 + 3) / paso);
+          if (idx !== idxPrev) { idxPrev = idx; tic(); gsap.fromTo(marca, { scaleY: 1.25 }, { scaleY: 1, duration: 0.12, overwrite: true }); }
+        }
+      }).then(() => {
+        cinta.style.filter = "";
+        const t = cinta.children[34];
+        if (t) { t.classList.add("ganador"); gsap.fromTo(t, { scale: 1 }, { scale: 1.08, duration: 0.25, yoyo: true, repeat: 1 }); }
+        return gsap.to({}, { duration: 0.6 });
+      });
+    }
+
+    // ---- la revelación
+    function chispas(cv, color, origen) {
+      if (quieto) return;
+      const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+      cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+      const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const o = origen.getBoundingClientRect(), cx = o.left - r.left + o.width / 2, cy = o.top - r.top + o.height / 2;
+      const ps = Array.from({ length: 110 }, () => { const a = Math.random() * Math.PI * 2, v = 2 + Math.random() * 8; return { x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2.5, t: 0, vida: 45 + Math.random() * 55, s: 1 + Math.random() * 2.6 }; });
+      const paso = () => {
+        ctx.clearRect(0, 0, r.width, r.height); let vivos = 0;
+        ctx.globalCompositeOperation = "lighter";
+        for (const p of ps) {
+          if (p.t++ > p.vida) continue; vivos++;
+          p.vy += 0.13; p.vx *= 0.985; p.x += p.vx; p.y += p.vy;
+          const a = Math.max(0, 1 - p.t / p.vida);
+          ctx.globalAlpha = a; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, p.s * a + 0.6, 0, 7); ctx.fill();
+          ctx.globalAlpha = a * 0.7; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x, p.y, p.s * a * 0.45, 0, 7); ctx.fill();
+        }
+        if (vivos) requestAnimationFrame(paso); else ctx.clearRect(0, 0, r.width, r.height);
       };
-      if (quieto) { cinta.style.transform = `translateX(${-(34 * 126 + 8 + 60 - ruleta.clientWidth / 2)}px)`; fin(); } else setTimeout(girar, 1250);
+      requestAnimationFrame(paso);
+    }
+    function revelar(premio) {
+      const d = D[premio.d], col = APP.COL_RAREZA[d[2]], nombre = d[0];
+      ultimo = premio; abiertas++; ganado += premio.p; balance();
+      rev.style.setProperty("--c", col);
+      revImg.src = imgDis(premio.d);
+      brillo.style.setProperty("--img", `url("${imgDis(premio.d)}")`);
+      rev.querySelector(".rev-rareza").textContent = `${RAREZAS[d[2]]} · ${c.caja}`;
+      const nEl = rev.querySelector(".rev-nombre"), pEl = rev.querySelector(".rev-precio b"), bEl = rev.querySelector(".rev-balance");
+      nEl.textContent = ""; pEl.textContent = usd(0);
+      const dif = premio.p - LLAVE_USD;
+      bEl.innerHTML = `Pagaste ${usd(LLAVE_USD)} por la llave: ${dif < 0 ? `<span class="pierde">perdiste ${usd(-dif)}</span>` : `<span class="gana">ganaste ${usd(dif)}</span>`}.`;
+      revInsp.hidden = true; revArma.hidden = false; insBtn.textContent = "Inspeccionar";
+      rev.classList.add("activa");
+      fanfarria(d[2]);
+      const o = { n: 0, v: 0 };
+      const tl = gsap.timeline()
+        .set(rev, { autoAlpha: 1 })
+        .fromTo(rev, { opacity: 0 }, { opacity: 1, duration: 0.3 })
+        .fromTo(rayos, { scale: 0.2, opacity: 0 }, { scale: 1, opacity: 0.65, duration: 1.1, ease: "expo.out" }, 0)
+        .fromTo(revArma, { z: -900, rotationY: -560, rotationX: 20, scale: 0.2, opacity: 0 }, { z: 0, rotationY: 0, rotationX: 0, scale: 1, opacity: 1, duration: 1.35, ease: "expo.out" }, 0.1)
+        .fromTo(revImg, { filter: "brightness(5) saturate(0) drop-shadow(0 22px 30px rgba(0,0,0,.65))" }, { filter: "brightness(1) saturate(1) drop-shadow(0 22px 30px rgba(0,0,0,.65))", duration: 1 }, 0.35)
+        .call(() => chispas(rev.querySelector(".rev-chispas"), col, revArma), null, 0.55)
+        .fromTo(brillo, { backgroundPosition: "160% 0%" }, { backgroundPosition: "-60% 0%", duration: 1.1, ease: "power2.inOut" }, 1.2)
+        .fromTo(rev.querySelector(".rev-rareza"), { y: 12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, 0.6)
+        .fromTo(rev.querySelector(".rev-barra"), { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "power3.out" }, 0.65)
+        .to(o, { n: nombre.length, duration: 0.7, ease: "none", onUpdate: () => { nEl.textContent = nombre.slice(0, Math.round(o.n)); } }, 0.8)
+        .to(o, { v: premio.p, duration: 1.1, ease: "power2.out", onUpdate: () => { pEl.textContent = usd(o.v); } }, 0.95)
+        .fromTo([bEl, rev.querySelector(".rev-botones")], { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, stagger: 0.12 }, 1.6);
+      if (!quieto) {
+        giroRayos = gsap.to(rayos, { rotation: "+=360", duration: 32, ease: "none", repeat: -1 });
+        flota = gsap.to(revArma, { rotationY: 9, y: -6, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 1.5 });
+      } else tl.progress(1);
+      return tl.then(() => document.getElementById("rev-otra").focus({ preventScroll: true }));
+    }
+    function cerrar(rapido) {
+      if (giroRayos) giroRayos.kill(); if (flota) flota.kill();
+      rev.classList.remove("activa");
+      const capa = escena.lienzo || plano;
+      const tl = gsap.timeline()
+        .to(rev, { autoAlpha: 0, duration: rapido ? 0.2 : 0.35 })
+        .to(ruleta, { autoAlpha: 0, y: 20, duration: 0.3 }, "<")
+        .add(escena.reset(), "<")
+        .to(capa, { opacity: 1, filter: "blur(0px)", duration: 0.5 }, "<");
+      if (quieto) tl.progress(1);
+      return tl.then(() => { if (pendiente3D) { const e = pendiente3D; pendiente3D = null; usar3D(e); } });
+    }
+    async function abrir() {
+      if (ocupado) return;
+      ocupado = true; boton.disabled = true; boton.textContent = "Abriendo…";
+      if (rev.classList.contains("activa")) await cerrar(true);
+      const premio = sortear(); llenar(premio); gsap.set(cinta, { x: 0 });
+      const capa = escena.lienzo || plano;
+      const tl = gsap.timeline()
+        .add(escena.abrir())
+        .to(capa, { opacity: escena.lienzo ? 0.22 : 0, filter: "blur(2px)", duration: 0.5 }, "-=0.4")
+        .fromTo(ruleta, { autoAlpha: 0, y: 26, scale: 0.97 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.45, ease: "power3.out" }, "<");
+      if (quieto) tl.progress(1); else await tl;
+      await girar();
+      await revelar(premio);
+      ocupado = false; boton.disabled = false; boton.textContent = "Usar otra llave";
+    }
+    boton.addEventListener("click", abrir);
+    document.getElementById("rev-otra").addEventListener("click", abrir);
+    document.getElementById("rev-cerrar").addEventListener("click", () => { if (!ocupado) cerrar(); });
+    insBtn.addEventListener("click", () => {
+      if (!ultimo) return;
+      const ver = revInsp.hidden;
+      revInsp.hidden = !ver; revArma.hidden = ver;
+      insBtn.textContent = ver ? "Ver la revelación" : "Inspeccionar";
+      if (ver) {
+        const d = D[ultimo.d], caja = document.createElement("div"); revInsp.innerHTML = ""; revInsp.appendChild(caja);
+        crearInspector(caja, { url: imgDis(ultimo.d), nombre: `${d[0]} (Field-Tested)`, rareza: d[2], float: Math.max(d[5], Math.min(d[6], 0.26)), seed: (ultimo.d * 31) % 997 });
+        gsap.from(revInsp, { scale: 0.85, opacity: 0, rotationY: -25, duration: 0.5, ease: "power3.out" });
+      }
     });
+  }
+
+  // La escena 3D: caja, tapa con bisagra, trabas, cerradura y llave, hechas con primitivas de Three.js.
+  // No usa modelos del juego; la carga es diferida y, si no hay WebGL, queda la imagen 2D.
+  async function crearEscena3D(cont, c) {
+    const prueba = document.createElement("canvas");
+    if (!(prueba.getContext("webgl2") || prueba.getContext("webgl"))) return null;
+    const THREE = await import("three");
+    const [{ RoomEnvironment }, { RoundedBoxGeometry }] = await Promise.all([
+      import("three/addons/environments/RoomEnvironment.js"), import("three/addons/geometries/RoundedBoxGeometry.js")]);
+    const lienzo = document.createElement("canvas"); lienzo.className = "lienzo"; lienzo.setAttribute("aria-hidden", "true");
+    cont.insertBefore(lienzo, cont.firstChild);
+    const ren = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true, alpha: true, powerPreference: "high-performance" });
+    ren.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    ren.toneMapping = THREE.ACESFilmicToneMapping; ren.toneMappingExposure = 1.05;
+    const esc3 = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(ren);
+    esc3.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60), mira = new THREE.Vector3(0, 0.6, 0);
+    const base0 = { y: 2.0, z: 7.6 }; cam.position.set(0, base0.y, base0.z);
+    esc3.add(new THREE.HemisphereLight(0xcfe0ff, 0x1a120a, 0.45));
+    const kL = new THREE.DirectionalLight(0xffffff, 2.1); kL.position.set(3, 5, 5); esc3.add(kL);
+    const rim = new THREE.DirectionalLight(0xf0a93b, 3.2); rim.position.set(-4, 2.5, -3); esc3.add(rim);
+    const rim2 = new THREE.DirectionalLight(0x6fa8ff, 1.3); rim2.position.set(4, 1, -4); esc3.add(rim2);
+
+    const lienzoTex = (w, h, dib) => { const cv = document.createElement("canvas"); cv.width = w; cv.height = h; dib(cv.getContext("2d"), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; };
+    const radial = (w, stops) => lienzoTex(w, w, (g) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); stops.forEach(([o, col]) => gr.addColorStop(o, col)); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
+
+    const W = 2.8, H1 = 1.0, H2 = 0.44, P = 1.2;
+    const caja = new THREE.Group(), vaiven = new THREE.Group(); esc3.add(caja); caja.add(vaiven);
+    const cuerpo = new THREE.MeshPhysicalMaterial({ color: 0x1e232a, metalness: 0.45, roughness: 0.34, clearcoat: 1, clearcoatRoughness: 0.14 });
+    const ambar = new THREE.MeshStandardMaterial({ color: 0xf0a93b, emissive: 0xf08a1b, emissiveIntensity: 0.9, roughness: 0.35, metalness: 0.3 });
+    const oro = new THREE.MeshStandardMaterial({ color: 0xe2b85c, metalness: 1, roughness: 0.24 });
+    const negro = new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.55, metalness: 0.25 });
+
+    const base = new THREE.Mesh(new RoundedBoxGeometry(W, H1, P, 5, 0.1), cuerpo); base.position.y = H1 / 2; vaiven.add(base);
+    const franja = new THREE.Mesh(new THREE.BoxGeometry(W - 0.3, 0.035, 0.02), ambar); franja.position.set(0, 0.1, P / 2 + 0.005); vaiven.add(franja);
+    const hueco = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.26, P - 0.26), new THREE.MeshBasicMaterial({ color: 0x050506 }));
+    hueco.rotation.x = -Math.PI / 2; hueco.position.y = H1 + 0.003; vaiven.add(hueco);
+    // emblema del frente: ícono de la colección (archivo local) + nombre
+    const emb = document.createElement("canvas"); emb.width = 1024; emb.height = 360;
+    const embT = new THREE.CanvasTexture(emb); embT.colorSpace = THREE.SRGBColorSpace; embT.anisotropy = 4;
+    const dibEmb = (icono) => {
+      const g = emb.getContext("2d"); g.clearRect(0, 0, 1024, 360);
+      if (icono) { const k = Math.min(300 / icono.width, 260 / icono.height); g.drawImage(icono, 150 - icono.width * k / 2, 180 - icono.height * k / 2, icono.width * k, icono.height * k); }
+      else { g.fillStyle = "#f0a93b"; g.beginPath(); [[170, 40], [80, 200], [150, 200], [110, 330], [240, 150], [170, 150], [220, 40]].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
+      const nombre = String(c.caja || "").replace(/ Case$/i, "").toUpperCase();
+      g.fillStyle = "#f3f4f6"; g.font = `700 ${nombre.length > 9 ? 92 : 118}px "Chakra Petch", "Arial Narrow", sans-serif`; g.textBaseline = "alphabetic"; g.fillText(nombre, 320, 190);
+      g.fillStyle = "#f0a93b"; g.font = '600 58px "IBM Plex Mono", monospace'; g.fillText("C A S E", 324, 270);
+      embT.needsUpdate = true;
+    };
+    dibEmb(null);
+    const ic = APP.COLS[c.c] && APP.COLS[c.c].icono;
+    if (ic) { const im = new Image(); if (/^https?:/.test(ic)) im.crossOrigin = "anonymous"; im.onload = () => { dibEmb(im); document.fonts && document.fonts.ready.then(() => dibEmb(im)); }; im.src = src(ic, 256); }
+    else if (document.fonts) document.fonts.ready.then(() => dibEmb(null));
+    const emblema = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.64, W * 0.64 * 360 / 1024),
+      new THREE.MeshStandardMaterial({ map: embT, transparent: true, roughness: 0.5, metalness: 0.1, emissive: 0xffffff, emissiveMap: embT, emissiveIntensity: 0.22 }));
+    emblema.position.set(0, H1 * 0.44, P / 2 + 0.004); vaiven.add(emblema);
+    // tapa con bisagra atrás
+    const tapa = new THREE.Group(); tapa.position.set(0, H1, -P / 2); vaiven.add(tapa);
+    const tapaM = new THREE.Mesh(new RoundedBoxGeometry(W, H2, P, 5, 0.1), cuerpo); tapaM.position.set(0, H2 / 2, P / 2); tapa.add(tapaM);
+    const ranura = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.012, 0.05), ambar); ranura.position.set(0, H2 + 0.004, P * 0.82); tapa.add(ranura);
+    const espuma = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.26, P - 0.26), new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 1, metalness: 0 }));
+    espuma.rotation.x = Math.PI / 2; espuma.position.set(0, -0.003, P / 2); tapa.add(espuma);
+    const asa = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.055, 14, 40, Math.PI), negro); asa.position.set(0, H2 - 0.02, P / 2); tapa.add(asa);
+    // cerradura y trabas
+    const placa = new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.38, 0.08, 3, 0.03), oro); placa.position.set(0, H1, P / 2 + 0.03); vaiven.add(placa);
+    const ojo = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 24), negro); ojo.rotation.x = Math.PI / 2; ojo.position.set(0, H1, P / 2 + 0.075); vaiven.add(ojo);
+    const trabas = [-1.0, 1.0].map((x) => { const g = new THREE.Group(); g.position.set(x, H1 - 0.16, P / 2 + 0.02); const m = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.32, 0.07, 2, 0.02), oro); m.position.y = 0.16; g.add(m); vaiven.add(g); return g; });
+    // sombra, luz de adentro, halo, haz y chispas
+    const sombra = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3), new THREE.MeshBasicMaterial({ map: radial(256, [[0, "rgba(0,0,0,0.7)"], [1, "rgba(0,0,0,0)"]]), transparent: true, depthWrite: false }));
+    sombra.rotation.x = -Math.PI / 2; sombra.position.y = -0.01; caja.add(sombra);
+    const luz = new THREE.PointLight(0xffc66b, 0, 7, 1.6); luz.position.set(0, H1 + 0.05, 0.1); vaiven.add(luz);
+    const aditivo = { blending: THREE.AdditiveBlending, transparent: true, opacity: 0, depthWrite: false };
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial(256, [[0, "rgba(255,226,160,1)"], [0.28, "rgba(255,170,60,0.5)"], [1, "rgba(255,140,0,0)"]]), ...aditivo }));
+    halo.scale.set(4.2, 4.2, 1); halo.position.set(0, H1 + 0.55, -0.1); vaiven.add(halo);
+    const haz = new THREE.Sprite(new THREE.SpriteMaterial({ map: lienzoTex(128, 512, (g, w, h) => {
+      const v = g.createLinearGradient(0, h, 0, 0); v.addColorStop(0, "rgba(255,214,140,0.95)"); v.addColorStop(1, "rgba(255,170,60,0)"); g.fillStyle = v; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = "destination-in"; const hz = g.createLinearGradient(0, 0, w, 0); hz.addColorStop(0, "rgba(0,0,0,0)"); hz.addColorStop(0.5, "rgba(0,0,0,1)"); hz.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = hz; g.fillRect(0, 0, w, h);
+    }), ...aditivo }));
+    haz.scale.set(2.4, 3.6, 1); haz.position.set(0, H1 + 1.75, 0); vaiven.add(haz);
+    const N = 150, pos = new Float32Array(N * 3), vel = [];
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const puntos = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.08, map: radial(64, [[0, "rgba(255,255,255,1)"], [0.3, "rgba(255,205,110,0.9)"], [1, "rgba(255,150,0,0)"]]), ...aditivo }));
+    vaiven.add(puntos);
+    let chispasT = -1;
+    const disparar = () => {
+      for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * (W - 0.5); pos[i * 3 + 1] = H1; pos[i * 3 + 2] = (Math.random() - 0.5) * (P - 0.5); vel[i] = [(Math.random() - 0.5) * 1.1, 2.2 + Math.random() * 3.6, (Math.random() - 0.5) * 1.1]; }
+      geo.attributes.position.needsUpdate = true; puntos.material.opacity = 1; chispasT = 0;
+    };
+    // la llave (vive dentro del grupo de la caja para seguirla)
+    const llave = new THREE.Group(); llave.visible = false; vaiven.add(llave);
+    const arco = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.05, 16, 40), oro); arco.scale.z = 0.45; arco.rotation.y = Math.PI / 2; arco.position.z = 0.68;
+    const gema = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 14), ambar); gema.scale.x = 0.5; gema.position.z = 0.68;
+    const vastago = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 16), oro); vastago.rotation.x = Math.PI / 2; vastago.position.z = 0.26;
+    llave.add(arco, gema, vastago, ...[0.06, 0.16].map((z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.05), oro); m.position.set(0, -0.06, z); return m; }));
+
+    const est = { amp: quieto ? 0 : 1, t: 0, ocupado: false }, puntero = { x: 0, y: 0 };
+    cont.addEventListener("pointermove", (ev) => { const r = cont.getBoundingClientRect(); puntero.x = (ev.clientX - r.left) / r.width - 0.5; puntero.y = (ev.clientY - r.top) / r.height - 0.5; });
+    cont.addEventListener("pointerleave", () => { puntero.x = 0; puntero.y = 0; });
+    let ancho = 0, alto = 0, zBase = base0.z;
+    const medir = () => {
+      const w = cont.clientWidth, h = cont.clientHeight; if (!w || !h || (w === ancho && h === alto)) return;
+      ancho = w; alto = h; ren.setSize(w, h, false); cam.aspect = w / h;
+      zBase = base0.z * Math.max(1, 1.15 / cam.aspect); if (!est.ocupado) cam.position.z = zBase;
+      cam.updateProjectionMatrix();
+    };
+    new ResizeObserver(medir).observe(cont); medir();
+    const reloj = new THREE.Clock();
+    const cuadro = () => {
+      const dt = Math.min(0.05, reloj.getDelta()); est.t += dt;
+      vaiven.rotation.y = est.amp * (Math.sin(est.t * 0.55) * 0.5 + puntero.x * 0.6);
+      vaiven.rotation.x = est.amp * puntero.y * 0.2;
+      vaiven.position.y = est.amp * Math.sin(est.t * 1.3) * 0.05;
+      if (chispasT >= 0) {
+        chispasT += dt;
+        for (let i = 0; i < N; i++) { vel[i][1] -= 3.4 * dt; pos[i * 3] += vel[i][0] * dt; pos[i * 3 + 1] += vel[i][1] * dt; pos[i * 3 + 2] += vel[i][2] * dt; }
+        geo.attributes.position.needsUpdate = true; puntos.material.opacity = Math.max(0, 1 - chispasT / 1.9);
+        if (chispasT > 1.9) chispasT = -1;
+      }
+      cam.lookAt(mira); ren.render(esc3, cam);
+    };
+    new IntersectionObserver((es) => ren.setAnimationLoop(es[0].isIntersecting ? cuadro : null)).observe(cont);
+    cuadro();
+    return {
+      lienzo,
+      abrir() {
+        est.ocupado = true; llave.scale.set(1, 1, 1); llave.rotation.set(0, 0, 0);
+        return gsap.timeline()
+          .to(est, { amp: 0, duration: 0.6, ease: "power2.out" }, 0)
+          .to(caja.rotation, { y: -0.5, duration: 1, ease: "power2.inOut" }, 0)
+          .to(cam.position, { y: 1.55, z: zBase * 0.8, duration: 1, ease: "power2.inOut" }, 0)
+          .to(mira, { y: H1, duration: 1, ease: "power2.inOut" }, 0)
+          .set(llave, { visible: true }, 0.3)
+          .fromTo(llave.position, { x: 2.6, y: H1 + 1.6, z: P / 2 + 2.4 }, { x: 0, y: H1, z: P / 2 + 0.42, duration: 0.9, ease: "power3.out" }, 0.3)
+          .fromTo(llave.rotation, { x: -0.8, y: -2.2, z: 1.2 }, { x: 0, y: 0, z: 0, duration: 0.9, ease: "power3.out" }, 0.3)
+          .to(llave.position, { z: P / 2 + 0.08, duration: 0.2, ease: "power2.in" })
+          .to(llave.rotation, { z: Math.PI / 2, duration: 0.35, ease: "back.out(2.2)" })
+          .to(vaiven.position, { x: 0.035, duration: 0.045, yoyo: true, repeat: 5, ease: "none" }, "<0.12")
+          .to(trabas.map((t) => t.rotation), { x: 0.95, duration: 0.2, ease: "power2.out", stagger: 0.06 }, "<")
+          .addLabel("abre", "+=0.05")
+          .to(tapa.rotation, { x: -1.9, duration: 0.8, ease: "back.out(1.25)" }, "abre")
+          .to(caja.rotation, { y: 0, duration: 0.8, ease: "power2.inOut" }, "abre")
+          .to(luz, { intensity: 9, duration: 0.5 }, "abre")
+          .to(halo.material, { opacity: 0.75, duration: 0.4 }, "abre")
+          .to(haz.material, { opacity: 0.85, duration: 0.6 }, "abre+=0.1")
+          .call(disparar, null, "abre+=0.1")
+          .to(llave.scale, { x: 0.01, y: 0.01, z: 0.01, duration: 0.3, ease: "back.in(2)" }, "abre")
+          .to(cam.position, { y: 3.4, z: zBase * 0.5, duration: 1, ease: "power2.in" }, "abre+=0.5")
+          .to(mira, { y: H1 * 0.6, duration: 1, ease: "power2.in" }, "abre+=0.5");
+      },
+      reset() {
+        return gsap.timeline({ onComplete: () => { est.ocupado = false; llave.visible = false; } })
+          .to(tapa.rotation, { x: 0, duration: 0.6, ease: "power2.inOut" }, 0)
+          .to(caja.rotation, { y: 0, duration: 0.6 }, 0)
+          .to(trabas.map((t) => t.rotation), { x: 0, duration: 0.3 }, 0.4)
+          .to([halo.material, haz.material], { opacity: 0, duration: 0.4 }, 0)
+          .to(luz, { intensity: 0, duration: 0.4 }, 0)
+          .to(cam.position, { y: base0.y, z: zBase, duration: 0.9, ease: "power2.inOut" }, 0)
+          .to(mira, { y: 0.6, duration: 0.9, ease: "power2.inOut" }, 0)
+          .to(est, { amp: quieto ? 0 : 1, duration: 1 }, 0.5);
+      },
+      quitar() {}
+    };
   }
 
   // ---------------------------------------------------------------- 4.1 · el Armory
@@ -1427,6 +1877,14 @@ footer .wrap { display: grid; gap: 6px; }
     });
     est.innerHTML = html;
     est.addEventListener("click", (ev) => { const b = ev.target.closest(".coleccion"); if (b) seleccionarColeccion(Number(b.dataset.c)); });
+    if (animar && matchMedia("(hover: hover)").matches) {
+      est.addEventListener("pointermove", (ev) => {
+        const b = ev.target.closest(".coleccion"); if (!b) return;
+        const r = b.getBoundingClientRect();
+        gsap.to(b, { rotationY: ((ev.clientX - r.left) / r.width - 0.5) * 24, rotationX: -((ev.clientY - r.top) / r.height - 0.5) * 24, transformPerspective: 500, duration: 0.3, overwrite: "auto" });
+      });
+      est.addEventListener("pointerout", (ev) => { const b = ev.target.closest(".coleccion"); if (b && !b.contains(ev.relatedTarget)) gsap.to(b, { rotationX: 0, rotationY: 0, duration: 0.6, ease: "elastic.out(1, 0.5)", overwrite: "auto" }); });
+    }
     document.getElementById("est-izq").addEventListener("click", () => est.scrollBy({ left: -est.clientWidth * 0.8 }));
     document.getElementById("est-der").addEventListener("click", () => est.scrollBy({ left: est.clientWidth * 0.8 }));
   }
@@ -1444,17 +1902,44 @@ footer .wrap { display: grid; gap: 6px; }
   function tarjetaSkin(di, k) {
     const filas = filasPorDiseno.get(di) || [], ps = filas.map((i) => S[i].p);
     const rango = ps.length ? (Math.min(...ps) === Math.max(...ps) ? usd(ps[0]) : `${usd(Math.min(...ps))} a ${usd(Math.max(...ps))}`) : "";
-    return `<button type="button" class="tskin" data-d="${di}" style="--k:${k}" aria-pressed="${di === disenoElegido}">${foto(imgDis(di), di)}
+    return `<button type="button" class="tskin" data-d="${di}" data-flip-id="d${di}" style="--k:${k}" aria-pressed="${di === disenoElegido}">${foto(imgDis(di), di)}
       <span class="n1">${esc(D[di][0])}</span><span class="n2">${rz(D[di][2], RC[D[di][2]])} · ${rango}</span></button>`;
   }
-  function pintarVitrina() {
+  function pintarVitrina(reacomodar) {
     const c = COLS[colElegida], v = document.getElementById("vitrina");
+    const antes = animar && FLIP && reacomodar ? Flip.getState(v.querySelectorAll(".tskin")) : null;
     const lista = D.map((d, i) => i).filter((i) => D[i][3] === colElegida && disOk(i)).sort((a, b) => D[b][2] - D[a][2] || D[a][0].localeCompare(D[b][0]));
     const fecha = c.f ? new Date(c.f + "T12:00:00").toLocaleDateString("es-AR", { month: "long", year: "numeric" }) : "sin fecha";
     v.innerHTML = `<div class="vitrina-cab"><img src="${esc(src(c.icono, 128))}" alt="" onerror="this.style.visibility='hidden'">
       <div><h3>${esc(c.nombre)}</h3><p class="meta"><span class="etiqueta-tipo" style="--c:${APP.COL_ORIGEN[c.oi]}">${esc(c.origen)}</span> · ${fecha} · ${c.disenos} diseños · típico ${usd(c.mediana)}</p>
       <p class="meta">${c.caja ? "Se abre con la " + esc(c.caja) + ". " : ""}${esc(c.canal)}${c.lado === "prueba" ? " · El modelo nunca la vio." : ""}</p></div></div>` +
       (lista.length ? `<div class="muro">${lista.map((di, k) => tarjetaSkin(di, k)).join("")}</div>` : '<p class="muted">Ningún skin de esta colección cumple los filtros.</p>');
+    if (!animar) return;
+    const nuevos = v.querySelectorAll(".tskin");
+    if (antes) {
+      // los que siguen se deslizan a su nuevo lugar; los que aparecen crecen desde el centro
+      Flip.from(antes, { targets: nuevos, duration: 0.55, ease: "power2.inOut", scale: true,
+        onEnter: (els) => gsap.fromTo(els, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, stagger: 0.02, clearProps: "opacity,transform" }) });
+    } else {
+      // colección nueva: las cartas se reparten
+      gsap.fromTo(v.querySelector(".vitrina-cab"), { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.45, ease: "power2.out", clearProps: "opacity,transform" });
+      gsap.fromTo(nuevos, { opacity: 0, y: 30, rotationX: -55, transformPerspective: 700, transformOrigin: "50% 100%" },
+        { opacity: 1, y: 0, rotationX: 0, duration: 0.65, ease: "power3.out", stagger: 0.035, clearProps: "opacity,transform" });
+    }
+  }
+  // la foto del skin vuela desde su carta hasta la ficha de inspección
+  function volarA(img, destino) {
+    const r0 = img.getBoundingClientRect(), r1 = destino.getBoundingClientRect();
+    if (!r0.width || !r1.width || r1.top > innerHeight || r1.bottom < 0) return;
+    const c = img.cloneNode(); c.className = "vuela"; c.removeAttribute("loading");
+    Object.assign(c.style, { left: r0.left + "px", top: r0.top + "px", width: r0.width + "px", height: r0.height + "px" });
+    document.body.appendChild(c);
+    gsap.timeline({ onComplete: () => c.remove() })
+      .set(destino, { opacity: 0 })
+      .to(c, { left: r1.left + r1.width * 0.08, top: r1.top + r1.height * 0.12, width: r1.width * 0.84, height: r1.height * 0.76, rotation: -8, duration: 0.6, ease: "power3.inOut" })
+      .to(c, { rotation: 0, duration: 0.2 })
+      .to(destino, { opacity: 1, duration: 0.3, clearProps: "opacity" }, "-=0.2")
+      .to(c, { opacity: 0, duration: 0.25 }, "<");
   }
   function mostrarFicha(di, iFila) {
     disenoElegido = di;
@@ -1482,10 +1967,12 @@ footer .wrap { display: grid; gap: 6px; }
       </div>`;
     inspFicha = crearInspector(document.getElementById("ficha-insp"), { url: imgFila(f), nombre: nombreFila(f), rareza: d[2], float: fl, seed: (filaElegida * 7919) % 1001, stattrak: f.v === 1, souvenir: f.v === 2 });
     document.getElementById("ficha-float").addEventListener("input", (ev) => inspFicha.fijar(Number(ev.target.value)));
+    if (animar) gsap.from("#ficha .version, #ficha .veredicto", { x: 16, opacity: 0, duration: 0.35, stagger: 0.035, ease: "power2.out", clearProps: "opacity,transform" });
   }
   function seleccionarColeccion(ci, sinScroll) {
     colElegida = ci;
     pintarEstante(); pintarVitrina();
+    if (animar) { const ico = document.querySelector(`.coleccion[data-c="${ci}"] img`); if (ico) gsap.fromTo(ico, { scale: 0.55, rotation: -14 }, { scale: 1, rotation: 0, duration: 0.9, ease: "elastic.out(1, 0.45)", clearProps: "transform" }); }
     senal("explora", { sel: ci });
     const lista = D.map((d, i) => i).filter((i) => D[i][3] === ci).sort((a, b) => D[b][2] - D[a][2]);
     const primero = lista.find(disOk);
@@ -1503,14 +1990,19 @@ footer .wrap { display: grid; gap: 6px; }
     sa.addEventListener("change", () => {
       filtros.arma = Number(sa.value); senal("explora", { f_arma: filtros.arma }); pintarEstante();
       if (!colOk(COLS[colElegida])) { const prim = [...COLS].reverse().find(colOk); if (prim) { seleccionarColeccion(prim.c); return; } }
-      pintarVitrina(); const primero = D.map((d, i) => i).find((i) => D[i][3] === colElegida && disOk(i)); if (primero != null) mostrarFicha(primero);
+      pintarVitrina(true); const primero = D.map((d, i) => i).find((i) => D[i][3] === colElegida && disOk(i)); if (primero != null) mostrarFicha(primero);
     });
     const chips = document.getElementById("e-rareza");
     const marcar = (i) => [...chips.children].forEach((c, j) => c.setAttribute("aria-pressed", String(j === i + 1)));
-    const ponerRareza = (i) => { filtros.rareza = i; marcar(i); senal("explora", { f_rareza: i }); pintarVitrina(); };
+    const ponerRareza = (i) => { filtros.rareza = i; marcar(i); senal("explora", { f_rareza: i }); pintarVitrina(true); };
     chips.appendChild(chip("Todas", null, true, () => ponerRareza(-1)));
     RC.forEach((r, i) => chips.appendChild(chip(r, APP.COL_RAREZA[i], false, () => ponerRareza(i))));
-    document.getElementById("vitrina").addEventListener("click", (ev) => { const b = ev.target.closest(".tskin"); if (b) mostrarFicha(Number(b.dataset.d)); });
+    document.getElementById("vitrina").addEventListener("click", (ev) => {
+      const b = ev.target.closest(".tskin"); if (!b) return;
+      const img = b.querySelector("img");
+      mostrarFicha(Number(b.dataset.d));
+      if (animar && img && img.naturalWidth) volarA(img, document.getElementById("ficha-insp"));
+    });
     document.getElementById("ficha").addEventListener("click", (ev) => { const b = ev.target.closest(".version"); if (b) mostrarFicha(disenoElegido, Number(b.dataset.i)); });
     armarEstante();
     seleccionarColeccion(colElegida, true);
@@ -1545,7 +2037,7 @@ footer .wrap { display: grid; gap: 6px; }
     document.getElementById("p-origen").value = String(caso.o);
   }
   const precioDe = (p) => APP.CUANTILES[Math.max(0, Math.min(1000, Math.round(p * 10)))];
-  let realActual = null;   // sólo cuando se copian los atributos de un skin real se muestra ese skin
+  let realActual = null, tweenPred = null;   // sólo cuando se copian los atributos de un skin real se muestra ese skin
   function visualProba() {
     const origen = APP.ORIGENES[caso.o], souv = origen === "paquete souvenir" || origen === "sin identificar";
     const cont = document.getElementById("p-visual");
@@ -1553,6 +2045,7 @@ footer .wrap { display: grid; gap: 6px; }
       const f = realActual, d = D[f.d], [c0, c1] = FLOAT_TRAMOS[f.w];
       const lo = Math.max(d[5], c0), hi = Math.min(d[6], c1);
       cont.dataset.arma = "real";
+      if (animar) gsap.fromTo(cont, { opacity: 0, rotationY: -35, scale: 0.9, transformPerspective: 800 }, { opacity: 1, rotationY: 0, scale: 1, duration: 0.6, ease: "power3.out", clearProps: "opacity,transform" });
       inspProba = crearInspector(cont, { url: imgFila(f), nombre: `${nombreFila(f)} · skin real`, rareza: d[2], float: lo < hi ? (lo + hi) / 2 : (c0 + c1) / 2, seed: (S.indexOf(f) * 7919) % 1001, stattrak: f.v === 1, souvenir: f.v === 2 });
       return;
     }
@@ -1577,7 +2070,13 @@ footer .wrap { display: grid; gap: 6px; }
     const nv = origen === "caja" ? caso.nivel : 1;
     const pred = APP.GRILLA[[caso.arma, caso.r, caso.w, caso.o, caso.st, nv].join("|")];
     const lo = Math.max(0, pred - APP.MAE_CV), hi = Math.min(100, pred + APP.MAE_CV);
-    document.getElementById("t-pred").textContent = fmt(pred, 0) + " / 100";
+    const tp = document.getElementById("t-pred");
+    if (animar && tp.dataset.v) {
+      const o = { v: Number(tp.dataset.v) };
+      if (tweenPred) tweenPred.kill();
+      tweenPred = gsap.to(o, { v: pred, duration: 0.7, ease: "power2.out", onUpdate: () => { tp.textContent = fmt(o.v, 0) + " / 100"; } });
+    } else tp.textContent = fmt(pred, 0) + " / 100";
+    tp.dataset.v = String(pred);
     document.getElementById("t-precio").textContent = `${usd(precioDe(pred))} · entre ${usd(precioDe(lo))} y ${usd(precioDe(hi))}`;
     const souv = origen === "paquete souvenir" || origen === "sin identificar";
     document.getElementById("t-frase").textContent = `Un ${caso.st ? "StatTrak™ " : ""}${souv ? "Souvenir " : ""}${APP.ARMAS[caso.arma]} ${RC[caso.r]} (${EXTERIORES[caso.w]}) quedaría más caro que ${fmt(pred, 0)} de cada 100 skins.`;
@@ -1632,7 +2131,17 @@ footer .wrap { display: grid; gap: 6px; }
   armarGancho(); armarAnatomia(); armarEscalera(); armarExterior(); armarVariantes(); armarOrigenes(); armarCaja(); armarArmory(); armarMercado();
   armarExplora(); armarMesa(); pintarMesa();
   irAPaso(1); irAVista(0); tarjetaPunto(null);
-  graficos().then(() => actualizar(null));
+  graficos().then(() => { actualizar(null); if (ST) ScrollTrigger.refresh(); });
+  if (animar && SPLIT && ST) {
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+      const h1 = document.querySelector(".portada h1");
+      if (h1) SplitText.create(h1, { type: "words", mask: "words", autoSplit: true,
+        onSplit: (self) => gsap.from(self.words, { yPercent: 110, duration: 0.9, ease: "power4.out", stagger: 0.05, delay: 0.1 }) });
+      document.querySelectorAll("main h2, main .cabeza h3").forEach((h) => SplitText.create(h, { type: "words", mask: "words", autoSplit: true,
+        onSplit: (self) => gsap.from(self.words, { yPercent: 110, duration: 0.75, ease: "power3.out", stagger: 0.03, scrollTrigger: { trigger: h, start: "top 90%", once: true } }) }));
+      ScrollTrigger.refresh();
+    });
+  }
 
   let espera;
   const redibujar = () => { clearTimeout(espera); espera = setTimeout(() => graficos(), 250); };
